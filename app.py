@@ -101,18 +101,22 @@ def get_character_image():
 
     # Generate the image key - convert to lowercase and replace spaces with underscores
     image_key = f"character_images/{character.lower().replace(' ', '_')}.jpg"
+    print(f"Looking for image: {image_key} in bucket: {S3_BUCKET}")
 
     try:
         if s3_client and S3_BUCKET:
             # Check if image exists in S3
             try:
+                print("Checking if image exists in S3...")
                 s3_client.head_object(Bucket=S3_BUCKET, Key=image_key)
+                print("Image found, generating URL...")
                 # Generate a pre-signed URL for the image
                 image_url = s3_client.generate_presigned_url(
                     'get_object',
                     Params={'Bucket': S3_BUCKET, 'Key': image_key},
                     ExpiresIn=3600  # URL expires in 1 hour
                 )
+                print(f"Generated URL: {image_url}")
                 return jsonify({'image_url': image_url})
             except ClientError as e:
                 if e.response['Error']['Code'] == '404':
@@ -230,6 +234,46 @@ def chat():
 @app.route("/health")
 def health():
     return "OK", 200
+
+@app.route("/test_s3")
+def test_s3():
+    """Debug endpoint to test S3 connectivity"""
+    if not s3_client or not S3_BUCKET:
+        return jsonify({
+            "status": "error",
+            "message": "S3 not configured",
+            "bucket": S3_BUCKET,
+            "client": bool(s3_client)
+        })
+    
+    try:
+        # List objects in character_images/
+        response = s3_client.list_objects_v2(
+            Bucket=S3_BUCKET,
+            Prefix='character_images/',
+            MaxKeys=10
+        )
+        
+        # Test listing chat_history/
+        chat_response = s3_client.list_objects_v2(
+            Bucket=S3_BUCKET,
+            Prefix='chat_history/',
+            MaxKeys=10
+        )
+        
+        return jsonify({
+            "status": "success",
+            "bucket": S3_BUCKET,
+            "character_images": [obj['Key'] for obj in response.get('Contents', [])],
+            "chat_histories": [obj['Key'] for obj in chat_response.get('Contents', [])],
+            "cors": bool(s3_client.get_bucket_cors(Bucket=S3_BUCKET))
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "bucket": S3_BUCKET
+        })
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080, debug=True)
