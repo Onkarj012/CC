@@ -110,6 +110,7 @@
         font-weight: 500;
         cursor: pointer;
         transition: all 0.2s ease;
+        min-width: 140px;
       }
 
       .character-select:hover {
@@ -136,6 +137,157 @@
         color: var(--text-primary);
       }
 
+      .main-container {
+        flex: 1;
+        display: flex;
+        overflow: hidden;
+      }
+
+      .sidebar {
+        width: 300px;
+        background: var(--secondary-bg);
+        border-right: var(--panel-border);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
+      .sidebar-header {
+        padding: 1rem;
+        border-bottom: var(--panel-border);
+        font-weight: 600;
+        color: var(--text-primary);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .clear-history {
+        background: none;
+        border: none;
+        color: var(--text-secondary);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+      }
+
+      .clear-history:hover {
+        color: var(--accent-sakura);
+        background: var(--chat-bg);
+      }
+
+      .new-chat-btn {
+        margin: 1rem;
+        padding: 0.75rem 1rem;
+        background: linear-gradient(
+          135deg,
+          var(--accent-sakura),
+          var(--accent-lavender)
+        );
+        color: white;
+        border: none;
+        border-radius: 50px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: all 0.2s ease;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+      }
+
+      .new-chat-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-medium);
+      }
+
+      .chat-list {
+        flex: 1;
+        overflow-y: auto;
+        padding: 0.5rem;
+      }
+
+      .chat-item {
+        padding: 0.75rem;
+        border-radius: var(--border-radius);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-bottom: 0.5rem;
+        border: 1px solid transparent;
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .chat-item:hover {
+        background: var(--chat-bg);
+        border-color: var(--border-color);
+      }
+
+      .chat-item.active {
+        background: var(--chat-bg);
+        border-color: var(--accent-lavender);
+      }
+
+      .chat-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .chat-item-title {
+        font-weight: 500;
+        color: var(--text-primary);
+        font-size: 0.875rem;
+      }
+
+      .chat-item-delete {
+        color: var(--text-secondary);
+        opacity: 0;
+        transition: all 0.2s ease;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .chat-item:hover .chat-item-delete {
+        opacity: 1;
+      }
+
+      .chat-item-delete:hover {
+        color: var(--accent-sakura);
+        background: var(--primary-bg);
+      }
+
+      .chat-item-preview {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        line-height: 1.2;
+      }
+
+      .chat-item-time {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        opacity: 0.7;
+      }
+
+      .content-area {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+
       .chat-container {
         flex: 1;
         display: flex;
@@ -149,6 +301,12 @@
         padding: 1.5rem;
         background: var(--chat-bg);
         scroll-behavior: smooth;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .chat-messages > * {
+        margin-bottom: 1rem;
       }
 
       .message {
@@ -170,6 +328,7 @@
         box-shadow: var(--shadow-light);
         position: relative;
         border: var(--panel-border);
+        line-height: 1.5;
       }
 
       .message.user .message-bubble {
@@ -183,6 +342,62 @@
         color: var(--text-primary);
         border-top-left-radius: 4px;
         border-left: 4px solid var(--accent-sakura);
+      }
+
+      .message-content {
+        font-size: 0.95rem;
+      }
+
+      .loading-dots {
+        display: inline-flex;
+        gap: 0.3rem;
+        margin: 0.5rem 0;
+        animation: loadingPulse 1.4s infinite;
+      }
+
+      .loading-dots .dot {
+        width: 6px;
+        height: 6px;
+        background: var(--accent-sakura);
+        border-radius: 50%;
+        animation: dotPulse 1.4s infinite;
+      }
+
+      .loading-dots .dot:nth-child(2) {
+        animation-delay: 0.2s;
+      }
+
+      .loading-dots .dot:nth-child(3) {
+        animation-delay: 0.4s;
+      }
+
+      .message.loading {
+        opacity: 0.7;
+      }
+
+      .message.loading .message-bubble {
+        background: var(--secondary-bg);
+        border-color: var(--border-color);
+      }
+
+      @keyframes loadingPulse {
+        0%,
+        100% {
+          opacity: 0.5;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      @keyframes dotPulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.3);
+        }
       }
 
       .input-area {
@@ -242,7 +457,7 @@
         gap: 0.5rem;
       }
 
-      .send-button:hover {
+      .send-button:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: var(--shadow-medium);
       }
@@ -291,7 +506,82 @@
         }
       }
 
+      /* Chat Header Styles */
+      .chat-header {
+        padding: 1rem 1.5rem;
+        background: var(--secondary-bg);
+        border-bottom: var(--panel-border);
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .character-avatar-placeholder {
+        width: 48px;
+        height: 48px;
+        background: linear-gradient(
+          135deg,
+          var(--accent-sakura),
+          var(--accent-lavender)
+        );
+        border-radius: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-weight: 600;
+        font-size: 1.2rem;
+        flex-shrink: 0;
+      }
+
+      .character-info {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .character-name {
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 0.25rem;
+        font-size: 1rem;
+      }
+
+      .character-details {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.25rem;
+      }
+
+      .character-tag {
+        background: var(--accent-lavender);
+        color: white;
+        padding: 0.2rem 0.5rem;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .character-personality {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        line-height: 1.4;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+
       @media (max-width: 768px) {
+        .main-container {
+          flex-direction: column;
+        }
+
+        .sidebar {
+          width: 100%;
+          max-height: 200px;
+        }
+
         .header {
           padding: 1rem;
           flex-direction: column;
@@ -314,6 +604,14 @@
         .input-container {
           gap: 0.75rem;
         }
+
+        .character-details {
+          gap: 0.25rem;
+        }
+
+        .character-tag {
+          font-size: 0.7rem;
+        }
       }
 
       .chat-messages::-webkit-scrollbar {
@@ -332,6 +630,19 @@
       .chat-messages::-webkit-scrollbar-thumb:hover {
         background: var(--accent-sakura);
       }
+
+      .chat-list::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .chat-list::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      .chat-list::-webkit-scrollbar-thumb {
+        background: var(--border-color);
+        border-radius: 2px;
+      }
     </style>
   </head>
   <body>
@@ -341,7 +652,13 @@
       <div class="header-controls">
         <select id="character" class="character-select">
           {% for char in characters %}
-          <option value="{{ char.name }}" data-traits="{{ char.traits }}">
+          <option
+            value="{{ char.name }}"
+            data-traits="{{ char.traits }}"
+            data-universe="{{ char.universe or '' }}"
+            data-alias="{{ char.alias or '' }}"
+            data-greeting="{{ char.greeting or '' }}"
+          >
             {{ char.name }}
           </option>
           {% endfor %}
@@ -353,45 +670,115 @@
       </div>
     </div>
 
-    <!-- Chat Container -->
-    <div class="chat-container">
-      <div class="chat-messages" id="chatMessages">
-        <div class="welcome-message">
-          <h2 class="welcome-title">Welcome to Anime/Superhero Chat!</h2>
-          <p class="welcome-subtitle">
-            Chat with your favorite characters from anime and superhero
-            universes!
-          </p>
-          <p class="welcome-subtitle" id="characterTraits"></p>
+    <!-- Main Container -->
+    <div class="main-container">
+      <!-- Sidebar -->
+      <div class="sidebar">
+        <div class="sidebar-header">
+          Chat History
+          <button
+            class="clear-history"
+            id="clearHistory"
+            title="Clear All History"
+          >
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+        <button class="new-chat-btn" id="newChat">
+          <i class="fas fa-plus"></i>
+          New Chat
+        </button>
+        <div class="chat-list" id="chatList">
+          <!-- Chat history items will be added here -->
         </div>
       </div>
 
-      <!-- Input Area -->
-      <div class="input-area">
-        <div class="input-container">
-          <textarea
-            class="message-input"
-            id="messageInput"
-            placeholder="Type your message..."
-            rows="1"
-          ></textarea>
-          <button class="send-button" id="sendButton">
-            <span>Send</span>
-            <i class="fas fa-paper-plane"></i>
-          </button>
+      <!-- Content Area -->
+      <div class="content-area">
+        <!-- Chat Header -->
+        <div class="chat-header" id="chatHeader">
+          <div class="character-avatar-placeholder" id="characterAvatar"></div>
+          <div class="character-info">
+            <div class="character-name" id="characterName"></div>
+            <div class="character-details" id="characterDetails"></div>
+            <div class="character-personality" id="characterPersonality"></div>
+          </div>
+        </div>
+
+        <!-- Chat Container -->
+        <div class="chat-container">
+          <div class="chat-messages" id="chatMessages">
+            <div class="welcome-message">
+              <h2 class="welcome-title">Welcome to Anime/Superhero Chat!</h2>
+              <p class="welcome-subtitle" id="welcomeMessage"></p>
+            </div>
+          </div>
+
+          <!-- Input Area -->
+          <div class="input-area">
+            <div class="input-container">
+              <textarea
+                class="message-input"
+                id="messageInput"
+                placeholder="Type your message..."
+                rows="1"
+              ></textarea>
+              <button class="send-button" id="sendButton">
+                <span>Send</span>
+                <i class="fas fa-paper-plane"></i>
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <script>
-      // Theme toggle functionality
+      // Initialize state
+      let chatHistory = {};
+      try {
+        const initialHistory = JSON.parse(
+          "{{ chat_history | tojson | safe }}" || "[]"
+        );
+        // Group messages by chatId
+        initialHistory.forEach((msg) => {
+          const chatId = msg.chatId || "default";
+          if (!chatHistory[chatId]) {
+            chatHistory[chatId] = {
+              id: chatId,
+              character: msg.character || characterSelect.value,
+              messages: [],
+              lastActivity: msg.timestamp || Date.now(),
+            };
+          }
+          chatHistory[chatId].messages.push(msg);
+          chatHistory[chatId].lastActivity = Math.max(
+            chatHistory[chatId].lastActivity,
+            msg.timestamp || Date.now()
+          );
+        });
+      } catch (e) {
+        console.error("Error parsing chat history:", e);
+        chatHistory = {};
+      }
+      let currentChatId = null;
+      let activeCharacter = null;
+      let isProcessing = false;
+
+      // DOM elements
       const themeToggle = document.getElementById("themeToggle");
       const themeIcon = document.getElementById("themeIcon");
       const themeText = document.getElementById("themeText");
       const body = document.body;
       const characterSelect = document.getElementById("character");
-      const characterTraits = document.getElementById("characterTraits");
+      const chatMessages = document.getElementById("chatMessages");
+      const messageInput = document.getElementById("messageInput");
+      const sendButton = document.getElementById("sendButton");
+      const chatList = document.getElementById("chatList");
+      const newChatBtn = document.getElementById("newChat");
+      const clearHistoryBtn = document.getElementById("clearHistory");
 
+      // Initialize theme
       let isDark = true;
       body.setAttribute("data-theme", "dark");
 
@@ -408,28 +795,308 @@
         }
       });
 
-      // Update character traits
-      function updateCharacterTraits() {
-        const selectedOption =
-          characterSelect.options[characterSelect.selectedIndex];
-        const traits = selectedOption.dataset.traits;
-        characterTraits.textContent = `${selectedOption.text}'s traits: ${traits}`;
+      // Initialize characters data
+      const charactersData = JSON.parse("{{ characters | tojson | safe }}");
+
+      // Create new chat
+      function createNewChat(selectedCharacter = null) {
+        const chatId = "chat_" + Date.now();
+        const character = selectedCharacter || characterSelect.value;
+
+        // Create new chat object
+        chatHistory[chatId] = {
+          id: chatId,
+          character: character,
+          messages: [],
+          lastActivity: Date.now(),
+        };
+
+        currentChatId = chatId;
+        activeCharacter = character;
+
+        // Clear messages
+        chatMessages.innerHTML = "";
+
+        // Add welcome message
+        const welcomeDiv = document.createElement("div");
+        welcomeDiv.className = "welcome-message";
+        welcomeDiv.innerHTML = `
+              <h2 class="welcome-title">Chat with ${character}</h2>
+              <div id="characterImageContainer">
+                  <p class="welcome-subtitle" style="color: var(--text-secondary);">
+                      <i class="fas fa-image"></i> Loading character image...
+                  </p>
+              </div>
+              <p class="welcome-subtitle" id="welcomeCharacterMessage"></p>
+          `;
+        chatMessages.appendChild(welcomeDiv);
+
+        // Try to load character image from S3
+        fetch("/get_character_image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ character: character }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            const imageContainer = document.getElementById(
+              "characterImageContainer"
+            );
+            if (data.image_url) {
+              imageContainer.innerHTML = `
+                      <img src="${data.image_url}"
+                           alt="${character}"
+                           style="max-width: 200px; border-radius: 10px; margin: 20px auto; display: block; box-shadow: var(--shadow-medium);"
+                           onerror="this.onerror=null; this.parentElement.innerHTML='<p class=\'welcome-subtitle\' style=\'color: var(--text-secondary);\'><i class=\'fas fa-image\'></i> No image available for this character</p>';">
+                  `;
+            } else {
+              imageContainer.innerHTML =
+                '<p class="welcome-subtitle" style="color: var(--text-secondary);"><i class="fas fa-image"></i> No image available for this character</p>';
+            }
+          })
+          .catch((error) => {
+            console.error("Error loading character image:", error);
+            const imageContainer = document.getElementById(
+              "characterImageContainer"
+            );
+            imageContainer.innerHTML =
+              '<p class="welcome-subtitle" style="color: var(--text-secondary);"><i class="fas fa-exclamation-triangle"></i> Failed to load character image</p>';
+          });
+
+        // Update chat list
+        updateChatList();
+        updateCharacterInfo();
       }
 
-      characterSelect.addEventListener("change", updateCharacterTraits);
-      updateCharacterTraits(); // Initial update
+      // Update character info in header and welcome message
+      function updateCharacterInfo() {
+        const selectedOption =
+          characterSelect.options[characterSelect.selectedIndex];
+        const character = selectedOption.text;
+        const traits = selectedOption.dataset.traits;
+        const universe = selectedOption.dataset.universe;
+        const alias = selectedOption.dataset.alias;
+        const greeting = selectedOption.dataset.greeting;
 
-      // Chat functionality
-      const chatMessages = document.getElementById("chatMessages");
-      const messageInput = document.getElementById("messageInput");
-      const sendButton = document.getElementById("sendButton");
-      let isProcessing = false;
+        // Update header
+        document.getElementById("characterName").textContent = character;
 
+        const detailsContainer = document.getElementById("characterDetails");
+        detailsContainer.innerHTML = "";
+
+        if (universe) {
+          const universeTag = document.createElement("div");
+          universeTag.className = "character-tag";
+          universeTag.textContent = universe;
+          detailsContainer.appendChild(universeTag);
+        }
+
+        if (alias) {
+          const aliasTag = document.createElement("div");
+          aliasTag.className = "character-tag";
+          aliasTag.textContent = alias;
+          detailsContainer.appendChild(aliasTag);
+        }
+
+        document.getElementById("characterPersonality").textContent =
+          traits || "No personality traits available";
+
+        // Update avatar placeholder with first letter
+        const avatarPlaceholder = document.getElementById("characterAvatar");
+        avatarPlaceholder.innerHTML = character.charAt(0);
+
+        // Update welcome message
+        const welcomeMessage = document.getElementById(
+          "welcomeCharacterMessage"
+        );
+        if (welcomeMessage) {
+          welcomeMessage.textContent =
+            greeting || `Start chatting with ${character}! Ask about anything!`;
+        }
+
+        // Try to load character image for avatar
+        fetch("/get_character_image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ character: character }),
+        })
+          .then((res) => res.json())
+          .then((data) => {
+            if (data.image_url) {
+              const img = document.createElement("img");
+              img.src = data.image_url;
+              img.alt = character;
+              img.style.width = "48px";
+              img.style.height = "48px";
+              img.style.borderRadius = "24px";
+              img.style.objectFit = "cover";
+
+              const avatar = document.getElementById("characterAvatar");
+              avatar.innerHTML = "";
+              avatar.appendChild(img);
+            }
+          })
+          .catch((error) => {
+            console.error("Error loading character image:", error);
+          });
+      }
+
+      // Format timestamp for chat list
+      function formatTime(timestamp) {
+        const now = Date.now();
+        const diff = now - timestamp;
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        return `${days}d ago`;
+      }
+
+      // Update chat list in sidebar
+      function updateChatList() {
+        chatList.innerHTML = "";
+
+        // Sort chats by last activity
+        const sortedChats = Object.values(chatHistory).sort(
+          (a, b) => b.lastActivity - a.lastActivity
+        );
+
+        sortedChats.forEach((chat) => {
+          const chatItem = document.createElement("div");
+          chatItem.className = `chat-item ${
+            chat.id === currentChatId ? "active" : ""
+          }`;
+
+          const lastMessage =
+            chat.messages.length > 0
+              ? chat.messages[chat.messages.length - 1].content
+              : "New chat";
+          const preview =
+            lastMessage.length > 40
+              ? lastMessage.substring(0, 40) + "..."
+              : lastMessage;
+
+          chatItem.innerHTML = `
+                  <div class="chat-item-header">
+                      <div class="chat-item-title">${chat.character}</div>
+                      <button class="chat-item-delete" title="Delete chat">
+                          <i class="fas fa-trash-alt"></i>
+                      </button>
+                  </div>
+                  <div class="chat-item-preview">${preview}</div>
+                  <div class="chat-item-time">${formatTime(
+                    chat.lastActivity
+                  )}</div>
+              `;
+
+          // Add click handler for the chat item
+          chatItem.onclick = (e) => {
+            // Don't trigger if clicking the delete button
+            if (!e.target.closest(".chat-item-delete")) {
+              loadChat(chat.id);
+            }
+          };
+
+          // Add delete button handler
+          const deleteBtn = chatItem.querySelector(".chat-item-delete");
+          deleteBtn.onclick = (e) => {
+            e.stopPropagation();
+            if (
+              confirm(
+                `Are you sure you want to delete this chat with ${chat.character}?`
+              )
+            ) {
+              delete chatHistory[chat.id];
+              if (currentChatId === chat.id) {
+                // If deleting current chat, create a new one
+                createNewChat();
+              } else {
+                updateChatList();
+              }
+            }
+          };
+
+          chatList.appendChild(chatItem);
+        });
+      }
+
+      // Load a specific chat
+      function loadChat(chatId) {
+        if (!chatHistory[chatId]) return;
+
+        currentChatId = chatId;
+        activeCharacter = chatHistory[chatId].character;
+
+        // Update character select
+        characterSelect.value = activeCharacter;
+
+        // Clear and load messages
+        chatMessages.innerHTML = "";
+        chatHistory[chatId].messages.forEach((msg) => {
+          addMessage(msg.content, msg.type || msg.role, msg.character);
+        });
+
+        // If no messages, show welcome message
+        if (chatHistory[chatId].messages.length === 0) {
+          const welcomeDiv = document.createElement("div");
+          welcomeDiv.className = "welcome-message";
+          welcomeDiv.innerHTML = `
+                  <h2 class="welcome-title">Chat with ${activeCharacter}</h2>
+                  <p class="welcome-subtitle">Start your conversation!</p>
+              `;
+          chatMessages.appendChild(welcomeDiv);
+        }
+
+        updateChatList();
+        updateCharacterInfo();
+      }
+
+      // Clear all chat history
+      clearHistoryBtn.addEventListener("click", () => {
+        if (
+          confirm(
+            "Are you sure you want to clear all chat history? This action cannot be undone."
+          )
+        ) {
+          chatHistory = {};
+          createNewChat();
+        }
+      });
+
+      // Event listeners
+      characterSelect.addEventListener("change", () => {
+        createNewChat(characterSelect.value);
+      });
+
+      newChatBtn.addEventListener("click", () => {
+        createNewChat();
+      });
+
+      // Initialize first chat
+      if (Object.keys(chatHistory).length === 0) {
+        createNewChat();
+      } else {
+        // Load the most recent chat
+        const sortedChats = Object.values(chatHistory).sort(
+          (a, b) => b.lastActivity - a.lastActivity
+        );
+        if (sortedChats.length > 0) {
+          loadChat(sortedChats[0].id);
+        } else {
+          createNewChat();
+        }
+      }
+
+      // Auto-resize textarea
       messageInput.addEventListener("input", function () {
         this.style.height = "auto";
         this.style.height = Math.min(this.scrollHeight, 120) + "px";
       });
 
+      // Send message on Enter (but not Shift+Enter)
       messageInput.addEventListener("keydown", function (e) {
         if (e.key === "Enter" && !e.shiftKey) {
           e.preventDefault();
@@ -446,6 +1113,7 @@
 
         isProcessing = true;
         sendButton.disabled = true;
+        sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
 
         // Remove welcome message if it exists
         const welcomeMessage = document.querySelector(".welcome-message");
@@ -453,31 +1121,109 @@
           welcomeMessage.remove();
         }
 
+        // Create message objects
+        const userMsg = {
+          content: message,
+          type: "user",
+          timestamp: Date.now(),
+          chatId: currentChatId,
+        };
+
         // Add user message
         addMessage(message, "user");
+        if (currentChatId && chatHistory[currentChatId]) {
+          chatHistory[currentChatId].messages.push(userMsg);
+          chatHistory[currentChatId].lastActivity = Date.now();
+        }
 
         // Clear input
         messageInput.value = "";
         messageInput.style.height = "auto";
 
+        // Add loading message
+        const loadingMessage = addLoadingMessage();
+
         try {
           const res = await fetch("/chat", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ message: message, character: char }),
+            body: JSON.stringify({
+              message: message,
+              character: char,
+              chatId: currentChatId,
+            }),
           });
           const data = await res.json();
+
+          // Remove loading message
+          if (loadingMessage) {
+            loadingMessage.remove();
+          }
+
+          // Create AI message object
+          const aiMsg = {
+            content: data.reply,
+            type: "ai",
+            character: char,
+            timestamp: Date.now(),
+            chatId: currentChatId,
+          };
+
           addMessage(data.reply, "ai", char);
+          if (currentChatId && chatHistory[currentChatId]) {
+            chatHistory[currentChatId].messages.push(aiMsg);
+            chatHistory[currentChatId].lastActivity = Date.now();
+          }
+
+          // Update chat list to show latest message
+          updateChatList();
         } catch (error) {
-          addMessage(
-            "Sorry, there was an error processing your message.",
-            "ai",
-            char
-          );
+          console.error("Error sending message:", error);
+
+          // Remove loading message
+          if (loadingMessage) {
+            loadingMessage.remove();
+          }
+
+          const errorMsg =
+            "Sorry, there was an error processing your message. Please try again.";
+          addMessage(errorMsg, "ai", char);
+          if (currentChatId && chatHistory[currentChatId]) {
+            chatHistory[currentChatId].messages.push({
+              content: errorMsg,
+              type: "ai",
+              character: char,
+              timestamp: Date.now(),
+              chatId: currentChatId,
+            });
+            chatHistory[currentChatId].lastActivity = Date.now();
+          }
         }
 
         isProcessing = false;
         sendButton.disabled = false;
+        sendButton.innerHTML =
+          '<span>Send</span><i class="fas fa-paper-plane"></i>';
+      }
+
+      function addLoadingMessage() {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message ai loading";
+
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+
+        const loadingDiv = document.createElement("div");
+        loadingDiv.className = "loading-dots";
+        loadingDiv.innerHTML =
+          '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+
+        bubble.appendChild(loadingDiv);
+        messageDiv.appendChild(bubble);
+        chatMessages.appendChild(messageDiv);
+
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
       }
 
       function addMessage(content, type, character = "") {
@@ -493,7 +1239,7 @@
         if (type === "ai") {
           messageContent.innerHTML = parseMarkdown(content);
         } else {
-          messageContent.innerHTML = escapeHtml(content);
+          messageContent.innerHTML = escapeHtml(content).replace(/\n/g, "<br>");
         }
 
         bubble.appendChild(messageContent);
@@ -516,15 +1262,36 @@
         return text
           .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
           .replace(/\*(.*?)\*/g, "<em>$1</em>")
-          .replace(/^### (.*$)/gm, "<h3>$1</h3>")
-          .replace(/^## (.*$)/gm, "<h2>$1</h2>")
-          .replace(/^# (.*$)/gm, "<h1>$1</h1>")
-          .replace(/^- (.*$)/gm, "<li>$1</li>")
-          .replace(/^\d+\. (.*$)/gm, "<li>$1</li>")
-          .replace(/(<li>.*<\/li>)/s, "<ul>$1</ul>")
-          .replace(/^> (.*$)/gm, "<blockquote>$1</blockquote>")
-          .replace(/`(.*?)`/g, "<code>$1</code>")
-          .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank">$1</a>')
+          .replace(
+            /^### (.*$)/gm,
+            '<h3 style="margin: 0.5rem 0; color: var(--accent-sakura);">$1</h3>'
+          )
+          .replace(
+            /^## (.*$)/gm,
+            '<h2 style="margin: 0.5rem 0; color: var(--accent-sakura);">$1</h2>'
+          )
+          .replace(
+            /^# (.*$)/gm,
+            '<h1 style="margin: 0.5rem 0; color: var(--accent-sakura);">$1</h1>'
+          )
+          .replace(/^- (.*$)/gm, '<li style="margin-left: 1rem;">$1</li>')
+          .replace(
+            /^\d+\. (.*$)/gm,
+            '<li style="margin-left: 1rem; list-style-type: decimal;">$1</li>'
+          )
+          .replace(/(<li.*<\/li>)/s, '<ul style="margin: 0.5rem 0;">$1</ul>')
+          .replace(
+            /^> (.*$)/gm,
+            '<blockquote style="border-left: 3px solid var(--accent-lavender); padding-left: 1rem; margin: 0.5rem 0; font-style: italic;">$1</blockquote>'
+          )
+          .replace(
+            /`(.*?)`/g,
+            '<code style="background: var(--secondary-bg); padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace;">$1</code>'
+          )
+          .replace(
+            /\[(.*?)\]\((.*?)\)/g,
+            '<a href="$2" target="_blank" style="color: var(--accent-lavender); text-decoration: underline;">$1</a>'
+          )
           .replace(/\n/g, "<br>");
       }
     </script>
