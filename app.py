@@ -18,6 +18,14 @@ def format_datetime(timestamp):
 CHUTES_API_KEY = os.getenv("CHUTES_API_KEY")
 CHUTES_BASE_URL = os.getenv("CHUTES_BASE_URL", "https://llm.chutes.ai/v1/chat/completions")
 
+# Initialize S3 client
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
+    aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
+    region_name=os.getenv('AWS_REGION', 'ap-southeast-2')
+)
+
 S3_BUCKET = os.getenv("S3_BUCKET")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
 CHARACTER_MODEL = os.getenv("CHARACTER_MODEL", "deepseek-ai/DeepSeek-V3-0324")  # update to your desired model
@@ -276,4 +284,4 @@ def test_s3():
         })
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8080, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=True)
