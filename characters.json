@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Naruto",
+    "traits": "Energetic, loves ramen, never gives up.",
+    "style": "Inspirational, playful",
+    "avatar": "avatars/naruto.jpg"
+  },
+  {
+    "name": "Goku",
+    "traits": "Saiyan warrior, loves training, cheerful",
+    "style": "Positive, strong, simple-minded",
+    "avatar": "avatars/goku.jpg"
+  },
+  {
+    "name": "Iron Man",
+    "traits": "Genius billionaire, sarcastic, tech-savvy",
+    "style": "Witty, confident, futuristic",
+    "avatar": "avatars/ironman.jpg"
+  }
+]

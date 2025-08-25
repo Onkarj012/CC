@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Anime/Superhero GPT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white h-screen flex flex-col">
+  <div class="p-4 text-center text-2xl font-bold">Anime / Superhero GPT</div>
+
+  <div class="flex space-x-2 justify-center mb-2">
+    <select id="character" class="p-2 text-black rounded">
+      {% for char in characters %}
+      <option value="{{ char.name }}">{{ char.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div id="chat" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+
+  <div class="p-4 flex space-x-2">
+    <input id="message" class="flex-1 p-2 rounded text-black" placeholder="Type your message..." />
+    <button onclick="sendMsg()" class="bg-blue-500 px-4 py-2 rounded">Send</button>
+  </div>
+
+  <script>
+    async function sendMsg() {
+      const msg = document.getElementById('message').value;
+      const char = document.getElementById('character').value;
+      if (!msg) return;
+
+      document.getElementById('chat').innerHTML += `<div class='text-right'><b>You:</b> ${msg}</div>`;
+
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({message: msg, character: char})
+      });
+      const data = await res.json();
+
+      document.getElementById('chat').innerHTML += `<div><b>${char}:</b> ${data.reply}</div>`;
+      document.getElementById('message').value = '';
+    }
+  </script>
+</body>
+</html>
