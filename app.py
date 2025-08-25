@@ -1,14 +1,20 @@
-import os, json, random, requests
+import os, json, random, requests, time
 from flask import Flask, render_template, request, jsonify
 import boto3
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 app = Flask(__name__)
 
 # Config
-OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+CHUTES_API_KEY = os.getenv("CHUTES_API_KEY")
+CHUTES_BASE_URL = os.getenv("CHUTES_BASE_URL", "https://llm.chutes.ai/v1/chat/completions")
+
 S3_BUCKET = os.getenv("S3_BUCKET")
 AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-CHARACTER_MODEL = os.getenv("CHARACTER_MODEL", "openrouter/anthropic/claude-3.5-sonnet")
+CHARACTER_MODEL = os.getenv("CHARACTER_MODEL", "deepseek-ai/DeepSeek-V3-0324")  # update to your desired model
 DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
 
 # Load characters
@@ -40,33 +46,58 @@ def chat():
     char = next((c for c in characters if c["name"] == char_name), characters[0])
 
     if DEMO_MODE:
-        return jsonify({"reply": f"As {char['name']}: {random.choice(['Believe it!', 'Let’s train harder!', 'You can do it!'])}"})
+        return jsonify({"reply": f"As {char['name']}: {random.choice(['Believe it!', 'Lets train harder!', 'You can do it!'])}"})
 
-    prompt = f"""
-        You are {char['name']} from {char['universe']}.
-        Stay in character and answer like {char['name']} would.
-        """
+    # System prompt
+    system_prompt = f"""You are {char['name']}. You possess the following traits: {char['traits']}
+    Your communication style is: {char['style']}
+    Respond naturally, staying in character at all times.
+    """
 
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_msg}
+    ]
 
     headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}",
-        "Content-Type": "application/json"
-    }
-    resp = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json={
+    "Authorization": f"Bearer {CHUTES_API_KEY}",
+    "Content-Type": "application/json"
+}
+
+
+    payload = {
         "model": CHARACTER_MODEL,
-        "messages": [{"role": "user", "content": prompt}]
-    })
+        "messages": messages,
+        "temperature": 0.7,
+        "top_p": 0.9,
+        "max_tokens": 500
+    }
 
-    if resp.status_code == 200:
-        reply = resp.json()["choices"][0]["message"]["content"]
-    else:
-        reply = f"[Error from OpenRouter: {resp.text}]"
+    try:
+        resp = requests.post(CHUTES_BASE_URL, headers=headers, json=payload, timeout=30)
 
-    return jsonify({"reply": reply})
+        if resp.status_code == 200:
+            resp_json = resp.json()
+            reply = resp_json["choices"][0]["message"]["content"]
+            return jsonify({"reply": reply})
+
+        elif resp.status_code == 429:  # rate limit
+            return jsonify({"reply": "Too many requests. Please try again later."})
+
+        else:
+            try:
+                error_msg = resp.json().get("error", {}).get("message", f"Error {resp.status_code}")
+            except:
+                error_msg = f"Error: {resp.status_code}"
+            return jsonify({"reply": f"Sorry, there was an error: {error_msg}"})
+
+    except requests.exceptions.RequestException:
+        return jsonify({"reply": "Network error. Please try again."})
+
 
 @app.route("/health")
 def health():
     return "OK", 200
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=8000, debug=True)
+    app.run(host="0.0.0.0", port=8080, debug=True)
