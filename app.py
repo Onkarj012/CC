@@ -42,11 +42,11 @@ def chat():
     if DEMO_MODE:
         return jsonify({"reply": f"As {char['name']}: {random.choice(['Believe it!', 'Let’s train harder!', 'You can do it!'])}"})
 
-    prompt = f"You are {char['name']}.
-Traits: {char['traits']}.
-Style: {char['style']}.
-User: {user_msg}
-Reply in character."
+    prompt = f"""
+        You are {char['name']} from {char['universe']}.
+        Stay in character and answer like {char['name']} would.
+        """
+
 
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
