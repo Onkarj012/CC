@@ -280,7 +280,27 @@ def index():
     chat_history = load_chat_history(user_id) if S3_BUCKET else []
     print(f"Passing chat history to template: {json.dumps(chat_history, indent=2)}")
     
-    response = make_response(render_template("index.html", characters=chars, chat_history=chat_history))
+    
+    # In the index() route, after loading chat_history:
+    grouped_history = {}
+    for msg in chat_history:
+        chat_id = msg.get('chatId', 'default')
+        if chat_id not in grouped_history:
+            grouped_history[chat_id] = {
+                'id': chat_id,
+                'character': msg.get('character', 'Unknown'),
+                'messages': [],
+                'lastActivity': msg.get('timestamp', time.time())
+            }
+        grouped_history[chat_id]['messages'].append(msg)
+        grouped_history[chat_id]['lastActivity'] = max(
+            grouped_history[chat_id]['lastActivity'], 
+            msg.get('timestamp', time.time())
+        )
+
+    # Pass grouped_history instead of chat_history
+    response = make_response(render_template("index.html", characters=chars, chat_history=grouped_history))
+
     if not request.cookies.get('user_id'):
         response.set_cookie('user_id', user_id, max_age=31536000)  # 1 year expiry
     return response
@@ -349,13 +369,16 @@ def chat():
         chat_history.append({
             "role": "user",
             "content": user_msg,
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "chatId": data.get('chatId', 'default')
+
         })
         chat_history.append({
             "role": "assistant",
             "content": reply,
             "character": char_name,
-            "timestamp": time.time()
+            "timestamp": time.time(),
+            "chatId": data.get('chatId', 'default')
         })
         # Keep only last 50 messages
         if len(chat_history) > 50:
