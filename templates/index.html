@@ -741,20 +741,59 @@
     </div>
 
     <script>
-            // Initialize state
-      let chatHistory = {};
+            // Initialize global application state
+      window.chatApp = {
+          currentChatId: null,
+          activeCharacter: null,
+          isProcessing: false,
+          chatHistory: {},
+
+          // DOM elements
+          elements: {
+              themeToggle: document.getElementById('themeToggle'),
+              themeIcon: document.getElementById('themeIcon'),
+              themeText: document.getElementById('themeText'),
+              body: document.body,
+              characterSelect: document.getElementById('character'),
+              chatMessages: document.getElementById('chatMessages'),
+              messageInput: document.getElementById('messageInput'),
+              sendButton: document.getElementById('sendButton'),
+              chatList: document.getElementById('chatList'),
+              newChatBtn: document.getElementById('newChat'),
+              clearHistoryBtn: document.getElementById('clearHistory')
+          }
+      };
+
       try {
           console.log('Initializing chat history...');
           const rawHistory = '{{ chat_history | tojson | safe }}';
           console.log('Raw history:', rawHistory);
 
-          // Parse the initial data
-          let initialData;
           try {
-              // First try to clean the string of any control characters
+              // Clean string of control characters
               const cleanHistory = rawHistory.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-              initialData = JSON.parse(cleanHistory || '{}');
+              const parsedData = JSON.parse(cleanHistory || '{}');
               console.log('Successfully parsed chat history');
+              window.chatApp.chatHistory = parsedData;
+
+              // Initialize chat display after setting history
+              const chatCount = Object.keys(window.chatApp.chatHistory).length;
+              console.log(`Found ${chatCount} chats`);
+
+              if (chatCount > 0) {
+                  const sortedChats = Object.values(window.chatApp.chatHistory)
+                      .filter(chat => chat && chat.messages && chat.messages.length > 0)
+                      .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
+                  if (sortedChats.length > 0) {
+                      console.log('Loading most recent chat:', sortedChats[0]);
+                      loadChat(sortedChats[0].id);
+                  } else {
+                      createNewChat();
+                  }
+              } else {
+                  createNewChat();
+              }
           } catch (parseError) {
               console.error('First parse attempt failed:', parseError);
 
@@ -875,22 +914,33 @@
           chatHistory = {};
       }
 
-            let currentChatId = null;
-            let activeCharacter = null;
-            let isProcessing = false;
+            // Global state and DOM elements
+            window.chatApp = {
+                currentChatId: null,
+                activeCharacter: null,
+                isProcessing: false,
+                chatHistory: {},
 
-            // DOM elements
-            const themeToggle = document.getElementById('themeToggle');
-            const themeIcon = document.getElementById('themeIcon');
-            const themeText = document.getElementById('themeText');
-            const body = document.body;
-            const characterSelect = document.getElementById('character');
-            const chatMessages = document.getElementById('chatMessages');
-            const messageInput = document.getElementById('messageInput');
-            const sendButton = document.getElementById('sendButton');
-            const chatList = document.getElementById('chatList');
-            const newChatBtn = document.getElementById('newChat');
-            const clearHistoryBtn = document.getElementById('clearHistory');
+                // Initialize DOM elements
+                elements: {
+                    themeToggle: document.getElementById('themeToggle'),
+                    themeIcon: document.getElementById('themeIcon'),
+                    themeText: document.getElementById('themeText'),
+                    body: document.body,
+                    characterSelect: document.getElementById('character'),
+                    chatMessages: document.getElementById('chatMessages'),
+                    messageInput: document.getElementById('messageInput'),
+                    sendButton: document.getElementById('sendButton'),
+                    chatList: document.getElementById('chatList'),
+                    newChatBtn: document.getElementById('newChat'),
+                    clearHistoryBtn: document.getElementById('clearHistory')
+                }
+            };
+
+            // Create local references for convenience
+            const {currentChatId, activeCharacter, isProcessing, chatHistory, elements} = window.chatApp;
+            const {themeToggle, themeIcon, themeText, body, characterSelect, chatMessages,
+                   messageInput, sendButton, chatList, newChatBtn, clearHistoryBtn} = elements;
 
             // Initialize theme
             let isDark = true;
