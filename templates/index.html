@@ -748,10 +748,45 @@
           const rawHistory = '{{ chat_history | tojson | safe }}';
           console.log('Raw history:', rawHistory);
 
-          const initialData = JSON.parse(rawHistory || '{}');
-          console.log('Parsed initial data:', initialData);
+          // Parse the initial data
+          let initialData;
+          try {
+              // First try to clean the string of any control characters
+              const cleanHistory = rawHistory.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+              initialData = JSON.parse(cleanHistory || '{}');
+              console.log('Successfully parsed chat history');
+          } catch (parseError) {
+              console.error('First parse attempt failed:', parseError);
 
-          // Initialize chatHistory
+              try {
+                  // Try parsing the raw string directly
+                  initialData = JSON.parse(rawHistory || '{}');
+                  console.log('Successfully parsed raw chat history');
+              } catch (e) {
+                  console.error('Both parse attempts failed:', e);
+                  console.log('Raw history content:', rawHistory);
+                  initialData = {};
+              }
+          }
+
+          // Validate the parsed data
+          if (initialData && typeof initialData === 'object') {
+              console.log('Found valid chat data structure');
+
+              // Convert timestamps to proper format
+              Object.values(initialData).forEach(chat => {
+                  if (chat && Array.isArray(chat.messages)) {
+                      chat.messages = chat.messages.map(msg => ({
+                          ...msg,
+                          timestamp: msg.timestamp ? msg.timestamp * 1000 : Date.now()
+                      }));
+                      chat.lastActivity = chat.lastActivity ? chat.lastActivity * 1000 : Date.now();
+                  }
+              });
+          } else {
+              console.error('Invalid chat data structure:', initialData);
+              initialData = {};
+          }          // Initialize chatHistory
           if (Array.isArray(initialData)) {
               // Handle old format (array of messages)
               console.log('Processing array format history');
@@ -1039,28 +1074,56 @@
 
             // Update chat list in sidebar
             function updateChatList() {
+                console.log('Updating chat list...');
+                console.log('Current chat history:', chatHistory);
                 chatList.innerHTML = '';
 
                 // Sort chats by last activity
-                const sortedChats = Object.values(chatHistory).sort((a, b) => b.lastActivity - a.lastActivity);
+                const chats = Object.values(chatHistory);
+                console.log(`Found ${chats.length} chats to display`);
+
+                const sortedChats = chats
+                    .filter(chat => chat && chat.messages && chat.messages.length > 0)
+                    .sort((a, b) => {
+                        const timeA = a.lastActivity || 0;
+                        const timeB = b.lastActivity || 0;
+                        return timeB - timeA;
+                    });
+
+                console.log('Sorted chats:', sortedChats);
 
                 sortedChats.forEach(chat => {
                     const chatItem = document.createElement('div');
                     chatItem.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
 
-                    const lastMessage = chat.messages.length > 0 ? chat.messages[chat.messages.length - 1].content : 'New chat';
+                    // Get last message and ensure it has content
+                    const lastMessage = chat.messages.length > 0
+                        ? (chat.messages[chat.messages.length - 1].content || 'Empty message')
+                        : 'New chat';
                     const preview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
+
+                    // Ensure character name is set
+                    const displayCharacter = chat.character || characterSelect.value;
 
                     chatItem.innerHTML = `
                         <div class="chat-item-header">
-                            <div class="chat-item-title">${chat.character}</div>
+                            <div class="chat-item-title">${displayCharacter}</div>
                             <button class="chat-item-delete" title="Delete chat">
                                 <i class="fas fa-trash-alt"></i>
                             </button>
                         </div>
                         <div class="chat-item-preview">${preview}</div>
-                        <div class="chat-item-time">${formatTime(chat.lastActivity)}</div>
+                        <div class="chat-item-time">${formatTime(chat.lastActivity || Date.now())}</div>
                     `;
+
+                    // Log chat item details
+                    console.log('Creating chat item:', {
+                        id: chat.id,
+                        character: displayCharacter,
+                        preview: preview,
+                        lastActivity: chat.lastActivity,
+                        messageCount: chat.messages.length
+                    });
 
                     // Add click handler for the chat item
                     chatItem.onclick = (e) => {
@@ -1155,41 +1218,51 @@
                 createNewChat();
             });
 
-            // Initialize first chat or load existing chat
-            console.log('Initializing chat state...');
-            console.log('Current chat history:', chatHistory);
+            // Function to initialize the chat state
+            function initializeChatState() {
+                console.log('Initializing chat state...');
+                console.log('Current chat history:', chatHistory);
 
-            const chatCount = Object.keys(chatHistory).length;
-            console.log(`Found ${chatCount} existing chats`);
+                // First update the chat list to ensure it's populated
+                updateChatList();
 
-            if (chatCount === 0) {
-                console.log('No existing chats, creating new chat');
-                createNewChat();
-            } else {
-                // Load the most recent chat
-                const sortedChats = Object.values(chatHistory)
-                    .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+                const chats = Object.values(chatHistory)
+                    .filter(chat => chat && chat.messages && chat.messages.length > 0);
+                console.log(`Found ${chats.length} valid chats`);
+
+                if (chats.length === 0) {
+                    console.log('No existing chats, creating new chat');
+                    createNewChat();
+                    return;
+                }
+
+                // Sort chats by last activity
+                const sortedChats = chats.sort((a, b) => {
+                    const timeA = a.lastActivity || 0;
+                    const timeB = b.lastActivity || 0;
+                    return timeB - timeA;
+                });
 
                 console.log('Sorted chats:', sortedChats);
 
-                if (sortedChats.length > 0) {
-                    const mostRecentChat = sortedChats[0];
-                    console.log('Loading most recent chat:', mostRecentChat);
+                // Load the most recent chat
+                const mostRecentChat = sortedChats[0];
+                console.log('Most recent chat:', mostRecentChat);
 
-                    // Ensure the chat has a valid character
-                    if (!mostRecentChat.character || mostRecentChat.character === 'Unknown') {
-                        mostRecentChat.character = characterSelect.value;
-                    }
-
-                    loadChat(mostRecentChat.id);
-                    updateCharacterInfo();
-                } else {
-                    console.log('No valid chats found, creating new chat');
-                    createNewChat();
+                // Ensure the chat has a valid character
+                if (!mostRecentChat.character || mostRecentChat.character === 'Unknown') {
+                    console.log('Fixing invalid character name:', mostRecentChat.character);
+                    mostRecentChat.character = characterSelect.value;
                 }
+
+                // Load the chat
+                console.log('Loading most recent chat:', mostRecentChat.id);
+                loadChat(mostRecentChat.id);
+                updateCharacterInfo();
             }
 
-            // Auto-resize textarea
+            // Initialize the chat state
+            initializeChatState();            // Auto-resize textarea
             messageInput.addEventListener('input', function() {
                 this.style.height = 'auto';
                 this.style.height = Math.min(this.scrollHeight, 120) + 'px';

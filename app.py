@@ -290,10 +290,17 @@ def index():
         if S3_BUCKET:
             chat_history = load_chat_history(user_id)
             print(f"Loaded {len(chat_history)} messages from history")
+            
+            # Clean message content of any control characters
+            for msg in chat_history:
+                if 'content' in msg and isinstance(msg['content'], str):
+                    msg['content'] = ''.join(char for char in msg['content'] 
+                                           if char.isprintable() or char in ['\n', '\t'])
         else:
             print("S3 bucket not configured, skipping chat history load")
     except Exception as e:
         print(f"Error loading chat history: {e}")
+        chat_history = []
     
     # Group chat history
     grouped_history = {}
@@ -338,8 +345,43 @@ def index():
             msg.get('timestamp', time.time())
         )
 
-    # Pass grouped_history instead of chat_history
-    response = make_response(render_template("index.html", characters=chars, chat_history=grouped_history))
+    # Clean and encode the grouped history for the template
+    clean_history = {}
+    try:
+        for chat_id, chat in grouped_history.items():
+            clean_chat = {
+                'id': chat_id,
+                'character': chat.get('character', 'Unknown'),
+                'messages': [],
+                'lastActivity': chat.get('lastActivity', time.time())
+            }
+            
+            # Clean and validate each message
+            for msg in chat.get('messages', []):
+                clean_msg = {
+                    'chatId': chat_id,
+                    'content': msg.get('content', '').strip(),
+                    'type': msg.get('type', msg.get('role', 'user')),
+                    'character': msg.get('character', chat.get('character', 'Unknown')),
+                    'timestamp': msg.get('timestamp', time.time())
+                }
+                if clean_msg['content']:  # Only add non-empty messages
+                    clean_chat['messages'].append(clean_msg)
+            
+            if clean_chat['messages']:  # Only add chats with messages
+                clean_history[chat_id] = clean_chat
+        
+        print(f"Prepared {len(clean_history)} clean chats for template")
+    except Exception as e:
+        print(f"Error cleaning chat history: {e}")
+        clean_history = {}
+    
+    # Pass clean_history instead of grouped_history
+    response = make_response(render_template(
+        "index.html",
+        characters=chars,
+        chat_history=clean_history
+    ))
 
     if not request.cookies.get('user_id'):
         response.set_cookie('user_id', user_id, max_age=31536000)  # 1 year expiry
