@@ -348,6 +348,13 @@
         font-size: 0.95rem;
       }
 
+      .message-time {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin: 4px 8px;
+        opacity: 0.7;
+      }
+
       .loading-dots {
         display: inline-flex;
         gap: 0.3rem;
@@ -735,29 +742,98 @@
 
     <script>
             // Initialize state
-            // Replace the existing chatHistory initialization with:
       let chatHistory = {};
       try {
-          const initialData = JSON.parse('{{ chat_history | tojson | safe }}' || '{}');
-          // If it's already grouped, use directly; if it's an array, group it
+          console.log('Initializing chat history...');
+          const rawHistory = '{{ chat_history | tojson | safe }}';
+          console.log('Raw history:', rawHistory);
+
+          const initialData = JSON.parse(rawHistory || '{}');
+          console.log('Parsed initial data:', initialData);
+
+          // Initialize chatHistory
           if (Array.isArray(initialData)) {
               // Handle old format (array of messages)
+              console.log('Processing array format history');
               initialData.forEach(msg => {
-                  const chatId = msg.chatId || 'default';
+                  const chatId = msg.chatId || ('chat_' + Date.now());
+                  const now = Date.now();
+                  const msgTimestamp = msg.timestamp ? (msg.timestamp < 1000000000000 ? msg.timestamp * 1000 : msg.timestamp) : now;
+
                   if (!chatHistory[chatId]) {
+                      // Get character from message or select
+                      const character = (msg.character && msg.character !== 'Unknown')
+                          ? msg.character
+                          : characterSelect.value;
+
+                      console.log(`Creating new chat ${chatId} with character ${character}`);
                       chatHistory[chatId] = {
                           id: chatId,
-                          character: msg.character || characterSelect.value,
+                          character: character,
                           messages: [],
-                          lastActivity: msg.timestamp || Date.now()
+                          lastActivity: msgTimestamp
                       };
                   }
+
+                  // Ensure message has proper character
+                  msg.character = chatHistory[chatId].character;
+                  msg.timestamp = msgTimestamp;
+
                   chatHistory[chatId].messages.push(msg);
-                  chatHistory[chatId].lastActivity = Math.max(chatHistory[chatId].lastActivity, msg.timestamp || Date.now());
+                  chatHistory[chatId].lastActivity = Math.max(
+                      chatHistory[chatId].lastActivity,
+                      msgTimestamp
+                  );
               });
           } else {
-              // Handle new format (already grouped)
-              chatHistory = initialData;
+              // Handle grouped format
+              console.log('Processing grouped format history');
+              Object.entries(initialData).forEach(([chatId, chat]) => {
+                  const now = Date.now();
+
+                  // Ensure character is set
+                  if (!chat.character || chat.character === 'Unknown') {
+                      chat.character = characterSelect.value;
+                  }
+
+                  // Fix timestamps in messages
+                  chat.messages = chat.messages.map(msg => ({
+                      ...msg,
+                      timestamp: msg.timestamp ? (msg.timestamp < 1000000000000 ? msg.timestamp * 1000 : msg.timestamp) : now,
+                      character: msg.character || chat.character
+                  }));
+
+                  // Update lastActivity
+                  chat.lastActivity = Math.max(
+                      ...chat.messages.map(m => m.timestamp),
+                      chat.lastActivity || 0,
+                      now
+                  );
+
+                  chatHistory[chatId] = chat;
+              });
+          }
+
+          console.log('Final chat history:', chatHistory);
+
+          // Load most recent chat
+          const sortedChats = Object.values(chatHistory)
+              .sort((a, b) => b.lastActivity - a.lastActivity);
+
+          if (sortedChats.length > 0) {
+              console.log('Loading most recent chat:', sortedChats[0]);
+              const mostRecentChat = sortedChats[0];
+              currentChatId = mostRecentChat.id;
+              activeCharacter = mostRecentChat.character;
+
+              // Update character select to match the loaded chat
+              if (characterSelect.value !== activeCharacter) {
+                  console.log('Updating character select to:', activeCharacter);
+                  characterSelect.value = activeCharacter;
+              }
+
+              // Update character info
+              updateCharacterInfo();
           }
       } catch (e) {
           console.error('Error parsing chat history:', e);
@@ -935,8 +1011,19 @@
 
             // Format timestamp for chat list
             function formatTime(timestamp) {
+                // Ensure timestamp is in milliseconds
+                if (timestamp < 1000000000000) {
+                    timestamp = timestamp * 1000;
+                }
+
                 const now = Date.now();
                 const diff = now - timestamp;
+
+                // Sanity check - if timestamp is in the future or too far in the past
+                if (diff < 0 || diff > 315576000000) { // if more than 10 years
+                    return 'Unknown time';
+                }
+
                 const minutes = Math.floor(diff / 60000);
                 const hours = Math.floor(diff / 3600000);
                 const days = Math.floor(diff / 86400000);
@@ -944,7 +1031,10 @@
                 if (minutes < 1) return 'Just now';
                 if (minutes < 60) return `${minutes}m ago`;
                 if (hours < 24) return `${hours}h ago`;
-                return `${days}d ago`;
+                if (days < 30) return `${days}d ago`;
+
+                // Fall back to actual date for older messages
+                return new Date(timestamp).toLocaleDateString();
             }
 
             // Update chat list in sidebar
@@ -1001,18 +1091,36 @@
 
             // Load a specific chat
             function loadChat(chatId) {
-                if (!chatHistory[chatId]) return;
+                console.log('Loading chat:', chatId);
+                if (!chatHistory[chatId]) {
+                    console.error('Chat not found:', chatId);
+                    return;
+                }
+
+                const chat = chatHistory[chatId];
+                console.log('Loading chat data:', chat);
 
                 currentChatId = chatId;
-                activeCharacter = chatHistory[chatId].character;
+                activeCharacter = chat.character;
 
                 // Update character select
-                characterSelect.value = activeCharacter;
+                if (characterSelect.value !== activeCharacter) {
+                    console.log('Updating character select to:', activeCharacter);
+                    characterSelect.value = activeCharacter;
+                }
+
+                // Update character info
+                updateCharacterInfo();
 
                 // Clear and load messages
                 chatMessages.innerHTML = '';
-                chatHistory[chatId].messages.forEach(msg => {
-                    addMessage(msg.content, msg.type || msg.role, msg.character);
+                chat.messages.forEach(msg => {
+                    addMessage(
+                        msg.content,
+                        msg.type || msg.role,
+                        msg.character || activeCharacter,
+                        msg.timestamp
+                    );
                 });
 
                 // If no messages, show welcome message
@@ -1193,9 +1301,26 @@
                 return messageDiv;
             }
 
-            function addMessage(content, type, character = '') {
+            function addMessage(content, type, character = '', timestamp = null) {
+                console.log('Adding message:', { content, type, character, timestamp });
+
+                const now = Date.now();
+                timestamp = timestamp || now;
+
+                // Ensure timestamp is in milliseconds
+                if (timestamp < 1000000000000) {
+                    timestamp = timestamp * 1000;
+                }
+
                 const messageDiv = document.createElement('div');
                 messageDiv.className = `message ${type}`;
+                messageDiv.dataset.timestamp = timestamp;
+
+                // Add timestamp display
+                const timeDisplay = document.createElement('div');
+                timeDisplay.className = 'message-time';
+                timeDisplay.textContent = formatTime(timestamp);
+                messageDiv.appendChild(timeDisplay);
 
                 const bubble = document.createElement('div');
                 bubble.className = 'message-bubble';
