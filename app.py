@@ -271,27 +271,67 @@ def index():
     if not user_id:
         user_id = str(uuid.uuid4())
     
+    print(f"Handling request for user: {user_id}")
+    
+    # Prepare characters
     chars = []
-    for c in characters:
-        avatar_url = fetch_avatar_url(c["avatar"]) if S3_BUCKET else None
-        chars.append({**c, "avatar_url": avatar_url})
+    try:
+        for c in characters:
+            avatar_url = fetch_avatar_url(c["avatar"]) if S3_BUCKET else None
+            chars.append({**c, "avatar_url": avatar_url})
+        print(f"Prepared {len(chars)} characters")
+    except Exception as e:
+        print(f"Error preparing characters: {e}")
+        chars = []
     
     # Load chat history
-    chat_history = load_chat_history(user_id) if S3_BUCKET else []
-    print(f"Passing chat history to template: {json.dumps(chat_history, indent=2)}")
+    chat_history = []
+    try:
+        if S3_BUCKET:
+            chat_history = load_chat_history(user_id)
+            print(f"Loaded {len(chat_history)} messages from history")
+        else:
+            print("S3 bucket not configured, skipping chat history load")
+    except Exception as e:
+        print(f"Error loading chat history: {e}")
     
-    
-    # In the index() route, after loading chat_history:
+    # Group chat history
     grouped_history = {}
-    for msg in chat_history:
-        chat_id = msg.get('chatId', 'default')
-        if chat_id not in grouped_history:
-            grouped_history[chat_id] = {
-                'id': chat_id,
-                'character': msg.get('character', 'Unknown'),
-                'messages': [],
-                'lastActivity': msg.get('timestamp', time.time())
-            }
+    try:
+        for msg in chat_history:
+            chat_id = msg.get('chatId')
+            if not chat_id:  # Skip messages without chat ID
+                continue
+                
+            if chat_id not in grouped_history:
+                # Find the character for this chat
+                character = msg.get('character')
+                if not character or character == 'Unknown':
+                    character = next((c['name'] for c in chars if c['name']), chars[0]['name'] if chars else 'Unknown')
+                
+                print(f"Creating new chat group: {chat_id} with character: {character}")
+                grouped_history[chat_id] = {
+                    'id': chat_id,
+                    'character': character,
+                    'messages': [],
+                    'lastActivity': float(msg.get('timestamp', time.time()))
+                }
+            
+            # Add message to chat
+            grouped_history[chat_id]['messages'].append(msg)
+            
+            # Update lastActivity
+            msg_time = float(msg.get('timestamp', time.time()))
+            grouped_history[chat_id]['lastActivity'] = max(
+                grouped_history[chat_id]['lastActivity'],
+                msg_time
+            )
+        
+        print(f"Grouped messages into {len(grouped_history)} chats")
+    except Exception as e:
+        print(f"Error grouping chat history: {e}")
+        grouped_history = {}
+            
         grouped_history[chat_id]['messages'].append(msg)
         grouped_history[chat_id]['lastActivity'] = max(
             grouped_history[chat_id]['lastActivity'], 

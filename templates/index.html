@@ -1155,15 +1155,36 @@
                 createNewChat();
             });
 
-            // Initialize first chat
-            if (Object.keys(chatHistory).length === 0) {
+            // Initialize first chat or load existing chat
+            console.log('Initializing chat state...');
+            console.log('Current chat history:', chatHistory);
+
+            const chatCount = Object.keys(chatHistory).length;
+            console.log(`Found ${chatCount} existing chats`);
+
+            if (chatCount === 0) {
+                console.log('No existing chats, creating new chat');
                 createNewChat();
             } else {
                 // Load the most recent chat
-                const sortedChats = Object.values(chatHistory).sort((a, b) => b.lastActivity - a.lastActivity);
+                const sortedChats = Object.values(chatHistory)
+                    .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
+                console.log('Sorted chats:', sortedChats);
+
                 if (sortedChats.length > 0) {
-                    loadChat(sortedChats[0].id);
+                    const mostRecentChat = sortedChats[0];
+                    console.log('Loading most recent chat:', mostRecentChat);
+
+                    // Ensure the chat has a valid character
+                    if (!mostRecentChat.character || mostRecentChat.character === 'Unknown') {
+                        mostRecentChat.character = characterSelect.value;
+                    }
+
+                    loadChat(mostRecentChat.id);
+                    updateCharacterInfo();
                 } else {
+                    console.log('No valid chats found, creating new chat');
                     createNewChat();
                 }
             }
