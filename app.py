@@ -18,16 +18,95 @@ def format_datetime(timestamp):
 CHUTES_API_KEY = os.getenv("CHUTES_API_KEY")
 CHUTES_BASE_URL = os.getenv("CHUTES_BASE_URL", "https://llm.chutes.ai/v1/chat/completions")
 
+# S3 Configuration
+S3_BUCKET = os.getenv("S3_BUCKET")
+AWS_REGION = os.getenv("AWS_REGION", "ap-southeast-2")
+
 # Initialize S3 client
 s3_client = boto3.client(
     's3',
     aws_access_key_id=os.getenv('AWS_ACCESS_KEY_ID'),
     aws_secret_access_key=os.getenv('AWS_SECRET_ACCESS_KEY'),
-    region_name=os.getenv('AWS_REGION', 'ap-southeast-2')
+    region_name=AWS_REGION
 )
 
+def setup_s3_bucket():
+    """Configure S3 bucket with CORS and public read access"""
+    if not S3_BUCKET:
+        print("No S3 bucket configured")
+        return
+    
+    try:
+        # Configure CORS
+        cors_configuration = {
+            'CORSRules': [{
+                'AllowedHeaders': ['*'],
+                'AllowedMethods': ['GET', 'HEAD'],
+                'AllowedOrigins': ['*'],
+                'ExposeHeaders': ['ETag'],
+                'MaxAgeSeconds': 3000
+            }]
+        }
+        
+        # Set CORS configuration
+        s3_client.put_bucket_cors(Bucket=S3_BUCKET, CORSConfiguration=cors_configuration)
+        print(f"Successfully configured CORS for bucket: {S3_BUCKET}")
+
+        # Set bucket policy for public read access
+        bucket_policy = {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "PublicReadForGetBucketObjects",
+                    "Effect": "Allow",
+                    "Principal": "*",
+                    "Action": "s3:GetObject",
+                    "Resource": f"arn:aws:s3:::{S3_BUCKET}/character_images/*"
+                }
+            ]
+        }
+        
+        # Convert policy to JSON string
+        bucket_policy_string = json.dumps(bucket_policy)
+        
+        # Set the bucket policy
+        s3_client.put_bucket_policy(Bucket=S3_BUCKET, Policy=bucket_policy_string)
+        print(f"Successfully set bucket policy for: {S3_BUCKET}")
+        
+    except Exception as e:
+        print(f"Error configuring S3 bucket: {e}")
+
+# Set up S3 bucket when app starts
+setup_s3_bucket()
+
+def configure_s3_cors():
+    """Configure CORS for S3 bucket to allow image access"""
+    if not S3_BUCKET:
+        print("No S3 bucket configured")
+        return
+    
+    try:
+        cors_configuration = {
+            'CORSRules': [{
+                'AllowedHeaders': ['*'],
+                'AllowedMethods': ['GET', 'HEAD'],
+                'AllowedOrigins': ['*'],  # In production, replace with specific origins
+                'ExposeHeaders': ['ETag'],
+                'MaxAgeSeconds': 3000
+            }]
+        }
+        
+        s3_client.put_bucket_cors(Bucket=S3_BUCKET, CORSConfiguration=cors_configuration)
+        print(f"Successfully configured CORS for bucket: {S3_BUCKET}")
+    except Exception as e:
+        print(f"Error configuring CORS: {e}")
+
+# Configure CORS when app starts
+configure_s3_cors()
+
+# S3 and AWS Configuration
 S3_BUCKET = os.getenv("S3_BUCKET")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
+AWS_REGION = os.getenv("AWS_REGION", "us-east-1")  # Default to us-east-1 if not specified
 CHARACTER_MODEL = os.getenv("CHARACTER_MODEL", "deepseek-ai/DeepSeek-V3-0324")  # update to your desired model
 DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
 
@@ -53,10 +132,13 @@ def fetch_avatar_url(key):
 
 def load_chat_history(user_id):
     if not S3_BUCKET:
+        print("No S3 bucket configured")
         return []
     try:
+        print(f"Loading chat history for user {user_id} from bucket {S3_BUCKET}")
         response = s3_client.get_object(Bucket=S3_BUCKET, Key=f"chat_history/{user_id}.json")
         history = json.loads(response['Body'].read().decode('utf-8'))
+        print(f"Successfully loaded {len(history)} messages from chat history")
         return history
     except ClientError as e:
         error_code = e.response['Error'].get('Code', '')
@@ -79,14 +161,17 @@ def load_chat_history(user_id):
 
 def save_chat_history(user_id, history):
     if not S3_BUCKET:
+        print("No S3 bucket configured, skipping chat history save")
         return
     try:
+        print(f"Saving {len(history)} messages for user {user_id} to bucket {S3_BUCKET}")
         s3_client.put_object(
             Bucket=S3_BUCKET,
             Key=f"chat_history/{user_id}.json",
             Body=json.dumps(history, ensure_ascii=False),
             ContentType='application/json'
         )
+        print("Successfully saved chat history")
     except ClientError as e:
         error_code = e.response['Error'].get('Code', '')
         if error_code == 'NoSuchBucket':
@@ -112,32 +197,72 @@ def get_character_image():
     print(f"Looking for image: {image_key} in bucket: {S3_BUCKET}")
 
     try:
-        if s3_client and S3_BUCKET:
-            # Check if image exists in S3
+        if not s3_client:
+            print("S3 client not initialized")
+            return jsonify({'error': 'S3 client not initialized'}), 500
+        
+        if not S3_BUCKET:
+            print("S3 bucket not configured")
+            return jsonify({'error': 'S3 bucket not configured'}), 500
+
+        # Check if image exists in S3
+        try:
+            print("Checking if image exists in S3...")
+            s3_client.head_object(Bucket=S3_BUCKET, Key=image_key)
+            print("Image found, generating URL...")
+            
+            # Generate a pre-signed URL with longer expiration
+            image_url = s3_client.generate_presigned_url(
+                'get_object',
+                Params={
+                    'Bucket': S3_BUCKET,
+                    'Key': image_key,
+                    'ResponseContentType': 'image/jpeg'
+                },
+                ExpiresIn=86400  # URL expires in 24 hours
+            )
+            
+            print(f"Generated URL: {image_url}")
+            
+            # Verify URL is accessible
             try:
-                print("Checking if image exists in S3...")
-                s3_client.head_object(Bucket=S3_BUCKET, Key=image_key)
-                print("Image found, generating URL...")
-                # Generate a pre-signed URL for the image
-                image_url = s3_client.generate_presigned_url(
-                    'get_object',
-                    Params={'Bucket': S3_BUCKET, 'Key': image_key},
-                    ExpiresIn=3600  # URL expires in 1 hour
-                )
-                print(f"Generated URL: {image_url}")
-                return jsonify({'image_url': image_url})
-            except ClientError as e:
-                if e.response['Error']['Code'] == '404':
-                    # Image doesn't exist
-                    return jsonify({'image_url': None}), 404
-                else:
-                    print(f"S3 error: {e}")
-                    return jsonify({'error': 'Failed to fetch image'}), 500
-        else:
-            return jsonify({'error': 'S3 not configured'}), 500
+                requests.head(image_url)
+                print("URL is accessible")
+            except requests.exceptions.RequestException as e:
+                print(f"Warning: URL may not be accessible: {e}")
+            
+            return jsonify({
+                'image_url': image_url,
+                'bucket': S3_BUCKET,
+                'key': image_key,
+                'expires_in': '24 hours'
+            })
+            
+        except ClientError as e:
+            error_code = e.response['Error'].get('Code', '')
+            error_message = e.response['Error'].get('Message', '')
+            print(f"S3 error: {error_code} - {error_message}")
+            
+            if error_code == '404':
+                return jsonify({
+                    'image_url': None,
+                    'error': 'Image not found',
+                    'key': image_key
+                }), 404
+            else:
+                return jsonify({
+                    'error': f'S3 error: {error_code}',
+                    'message': error_message,
+                    'key': image_key
+                }), 500
+                
     except Exception as e:
-        print(f"Error handling character image: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        print(f"Error handling character image: {type(e).__name__} - {str(e)}")
+        return jsonify({
+            'error': 'Internal server error',
+            'message': str(e),
+            'key': image_key
+        }), 500
 
 @app.route("/")
 def index():
@@ -153,6 +278,7 @@ def index():
     
     # Load chat history
     chat_history = load_chat_history(user_id) if S3_BUCKET else []
+    print(f"Passing chat history to template: {json.dumps(chat_history, indent=2)}")
     
     response = make_response(render_template("index.html", characters=chars, chat_history=chat_history))
     if not request.cookies.get('user_id'):
@@ -242,6 +368,123 @@ def chat():
 @app.route("/health")
 def health():
     return "OK", 200
+
+@app.route("/check_s3")
+def check_s3():
+    """Check S3 configuration and test image access"""
+    try:
+        # Test bucket access
+        s3_client.head_bucket(Bucket=S3_BUCKET)
+        
+        # Check CORS configuration
+        try:
+            cors = s3_client.get_bucket_cors(Bucket=S3_BUCKET)
+            cors_status = "Configured"
+        except ClientError as e:
+            cors_status = f"Not configured: {str(e)}"
+        
+        # Check bucket policy
+        try:
+            policy = s3_client.get_bucket_policy(Bucket=S3_BUCKET)
+            policy_status = "Configured"
+        except ClientError as e:
+            policy_status = f"Not configured: {str(e)}"
+        
+        # Test character image access
+        test_images = ['naruto.jpg', 'iron_man.jpg']
+        image_status = {}
+        
+        for img in test_images:
+            try:
+                key = f"character_images/{img}"
+                url = s3_client.generate_presigned_url(
+                    'get_object',
+                    Params={'Bucket': S3_BUCKET, 'Key': key},
+                    ExpiresIn=3600
+                )
+                image_status[img] = {
+                    "status": "Available",
+                    "url": url
+                }
+            except Exception as e:
+                image_status[img] = {
+                    "status": "Error",
+                    "error": str(e)
+                }
+        
+        return jsonify({
+            "status": "success",
+            "bucket": S3_BUCKET,
+            "region": os.getenv('AWS_REGION', 'ap-southeast-2'),
+            "cors_status": cors_status,
+            "policy_status": policy_status,
+            "images": image_status
+        })
+        
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "bucket": S3_BUCKET
+        }), 500
+
+@app.route("/check_s3_config")
+def check_s3_config():
+    """Check S3 configuration and permissions"""
+    if not s3_client or not S3_BUCKET:
+        return jsonify({
+            "status": "error",
+            "message": "S3 not configured",
+            "bucket": S3_BUCKET,
+            "client": bool(s3_client)
+        })
+    
+    try:
+        # Check if bucket exists and is accessible
+        s3_client.head_bucket(Bucket=S3_BUCKET)
+        
+        # Try to get bucket CORS configuration
+        try:
+            cors = s3_client.get_bucket_cors(Bucket=S3_BUCKET)
+            cors_configured = True
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchCORSConfiguration':
+                cors_configured = False
+            else:
+                raise e
+        
+        # Check bucket policy
+        try:
+            policy = s3_client.get_bucket_policy(Bucket=S3_BUCKET)
+            has_policy = True
+        except ClientError as e:
+            if e.response['Error']['Code'] == 'NoSuchBucketPolicy':
+                has_policy = False
+            else:
+                raise e
+        
+        # Test image access
+        test_url = s3_client.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': S3_BUCKET, 'Key': 'character_images/naruto.jpg'},
+            ExpiresIn=3600
+        )
+        
+        return jsonify({
+            "status": "success",
+            "bucket": S3_BUCKET,
+            "cors_configured": cors_configured,
+            "has_policy": has_policy,
+            "test_image_url": test_url,
+            "region": os.getenv('AWS_REGION', 'ap-southeast-2')
+        })
+    except Exception as e:
+        return jsonify({
+            "status": "error",
+            "message": str(e),
+            "bucket": S3_BUCKET,
+            "region": os.getenv('AWS_REGION', 'ap-southeast-2')
+        })
 
 @app.route("/test_s3")
 def test_s3():
