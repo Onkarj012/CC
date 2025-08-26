@@ -741,774 +741,423 @@
     </div>
 
     <script>
-            // Initialize global application state
+      // ===== 1️⃣ Global App State =====
       window.chatApp = {
-          currentChatId: null,
-          activeCharacter: null,
-          isProcessing: false,
-          chatHistory: {},
-
-          // DOM elements
-          elements: {
-              themeToggle: document.getElementById('themeToggle'),
-              themeIcon: document.getElementById('themeIcon'),
-              themeText: document.getElementById('themeText'),
-              body: document.body,
-              characterSelect: document.getElementById('character'),
-              chatMessages: document.getElementById('chatMessages'),
-              messageInput: document.getElementById('messageInput'),
-              sendButton: document.getElementById('sendButton'),
-              chatList: document.getElementById('chatList'),
-              newChatBtn: document.getElementById('newChat'),
-              clearHistoryBtn: document.getElementById('clearHistory')
-          }
+        currentChatId: null,
+        activeCharacter: null,
+        isProcessing: false,
+        chatHistory: {},
+        elements: {
+          themeToggle: document.getElementById("themeToggle"),
+          themeIcon: document.getElementById("themeIcon"),
+          themeText: document.getElementById("themeText"),
+          body: document.body,
+          characterSelect: document.getElementById("character"),
+          chatMessages: document.getElementById("chatMessages"),
+          messageInput: document.getElementById("messageInput"),
+          sendButton: document.getElementById("sendButton"),
+          chatList: document.getElementById("chatList"),
+          newChatBtn: document.getElementById("newChat"),
+          clearHistoryBtn: document.getElementById("clearHistory"),
+        },
       };
 
+      const { elements } = window.chatApp;
+      const {
+        themeToggle,
+        themeIcon,
+        themeText,
+        body,
+        characterSelect,
+        chatMessages,
+        messageInput,
+        sendButton,
+        chatList,
+        newChatBtn,
+        clearHistoryBtn,
+      } = elements;
+
+      // ===== 2️⃣ Parse server-side chat history =====
       try {
-          console.log('Initializing chat history...');
-          const rawHistory = '{{ chat_history | tojson | safe }}';
-          console.log('Raw history:', rawHistory);
-
-          try {
-              // Clean string of control characters
-              const cleanHistory = rawHistory.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
-              const parsedData = JSON.parse(cleanHistory || '{}');
-              console.log('Successfully parsed chat history');
-              window.chatApp.chatHistory = parsedData;
-
-              // Initialize chat display after setting history
-              const chatCount = Object.keys(window.chatApp.chatHistory).length;
-              console.log(`Found ${chatCount} chats`);
-
-              if (chatCount > 0) {
-                  const sortedChats = Object.values(window.chatApp.chatHistory)
-                      .filter(chat => chat && chat.messages && chat.messages.length > 0)
-                      .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
-
-                  if (sortedChats.length > 0) {
-                      console.log('Loading most recent chat:', sortedChats[0]);
-                      loadChat(sortedChats[0].id);
-                  } else {
-                      createNewChat();
-                  }
-              } else {
-                  createNewChat();
-              }
-          } catch (parseError) {
-              console.error('First parse attempt failed:', parseError);
-
-              try {
-                  // Try parsing the raw string directly
-                  initialData = JSON.parse(rawHistory || '{}');
-                  console.log('Successfully parsed raw chat history');
-              } catch (e) {
-                  console.error('Both parse attempts failed:', e);
-                  console.log('Raw history content:', rawHistory);
-                  initialData = {};
-              }
-          }
-
-          // Validate the parsed data
-          if (initialData && typeof initialData === 'object') {
-              console.log('Found valid chat data structure');
-
-              // Convert timestamps to proper format
-              Object.values(initialData).forEach(chat => {
-                  if (chat && Array.isArray(chat.messages)) {
-                      chat.messages = chat.messages.map(msg => ({
-                          ...msg,
-                          timestamp: msg.timestamp ? msg.timestamp * 1000 : Date.now()
-                      }));
-                      chat.lastActivity = chat.lastActivity ? chat.lastActivity * 1000 : Date.now();
-                  }
-              });
-          } else {
-              console.error('Invalid chat data structure:', initialData);
-              initialData = {};
-          }          // Initialize chatHistory
-          if (Array.isArray(initialData)) {
-              // Handle old format (array of messages)
-              console.log('Processing array format history');
-              initialData.forEach(msg => {
-                  const chatId = msg.chatId || ('chat_' + Date.now());
-                  const now = Date.now();
-                  const msgTimestamp = msg.timestamp ? (msg.timestamp < 1000000000000 ? msg.timestamp * 1000 : msg.timestamp) : now;
-
-                  if (!chatHistory[chatId]) {
-                      // Get character from message or select
-                      const character = (msg.character && msg.character !== 'Unknown')
-                          ? msg.character
-                          : characterSelect.value;
-
-                      console.log(`Creating new chat ${chatId} with character ${character}`);
-                      chatHistory[chatId] = {
-                          id: chatId,
-                          character: character,
-                          messages: [],
-                          lastActivity: msgTimestamp
-                      };
-                  }
-
-                  // Ensure message has proper character
-                  msg.character = chatHistory[chatId].character;
-                  msg.timestamp = msgTimestamp;
-
-                  chatHistory[chatId].messages.push(msg);
-                  chatHistory[chatId].lastActivity = Math.max(
-                      chatHistory[chatId].lastActivity,
-                      msgTimestamp
-                  );
-              });
-          } else {
-              // Handle grouped format
-              console.log('Processing grouped format history');
-              Object.entries(initialData).forEach(([chatId, chat]) => {
-                  const now = Date.now();
-
-                  // Ensure character is set
-                  if (!chat.character || chat.character === 'Unknown') {
-                      chat.character = characterSelect.value;
-                  }
-
-                  // Fix timestamps in messages
-                  chat.messages = chat.messages.map(msg => ({
-                      ...msg,
-                      timestamp: msg.timestamp ? (msg.timestamp < 1000000000000 ? msg.timestamp * 1000 : msg.timestamp) : now,
-                      character: msg.character || chat.character
-                  }));
-
-                  // Update lastActivity
-                  chat.lastActivity = Math.max(
-                      ...chat.messages.map(m => m.timestamp),
-                      chat.lastActivity || 0,
-                      now
-                  );
-
-                  chatHistory[chatId] = chat;
-              });
-          }
-
-          console.log('Final chat history:', chatHistory);
-
-          // Load most recent chat
-          const sortedChats = Object.values(chatHistory)
-              .sort((a, b) => b.lastActivity - a.lastActivity);
-
-          if (sortedChats.length > 0) {
-              console.log('Loading most recent chat:', sortedChats[0]);
-              const mostRecentChat = sortedChats[0];
-              currentChatId = mostRecentChat.id;
-              activeCharacter = mostRecentChat.character;
-
-              // Update character select to match the loaded chat
-              if (characterSelect.value !== activeCharacter) {
-                  console.log('Updating character select to:', activeCharacter);
-                  characterSelect.value = activeCharacter;
-              }
-
-              // Update character info
-              updateCharacterInfo();
-          }
+        console.log("Initializing chat history...");
+        const rawHistory = "{{ chat_history | tojson | safe }}";
+        const cleanHistory = rawHistory.replace(
+          /[\u0000-\u001F\u007F-\u009F]/g,
+          ""
+        );
+        const parsedHistory = JSON.parse(cleanHistory || "{}");
+        window.chatApp.chatHistory = parsedHistory;
+        console.log("Parsed chat history:", window.chatApp.chatHistory);
       } catch (e) {
-          console.error('Error parsing chat history:', e);
-          chatHistory = {};
+        console.error("Error parsing chat history:", e);
+        window.chatApp.chatHistory = {};
       }
 
-            // Global state and DOM elements
-            window.chatApp = {
-                currentChatId: null,
-                activeCharacter: null,
-                isProcessing: false,
-                chatHistory: {},
+      // ===== 3️⃣ Theme toggle =====
+      let isDark = true;
+      body.setAttribute("data-theme", "dark");
+      themeToggle.addEventListener("click", () => {
+        isDark = !isDark;
+        if (isDark) {
+          body.setAttribute("data-theme", "dark");
+          themeIcon.textContent = "☀️";
+          themeText.textContent = "Light";
+        } else {
+          body.removeAttribute("data-theme");
+          themeIcon.textContent = "🌙";
+          themeText.textContent = "Dark";
+        }
+      });
 
-                // Initialize DOM elements
-                elements: {
-                    themeToggle: document.getElementById('themeToggle'),
-                    themeIcon: document.getElementById('themeIcon'),
-                    themeText: document.getElementById('themeText'),
-                    body: document.body,
-                    characterSelect: document.getElementById('character'),
-                    chatMessages: document.getElementById('chatMessages'),
-                    messageInput: document.getElementById('messageInput'),
-                    sendButton: document.getElementById('sendButton'),
-                    chatList: document.getElementById('chatList'),
-                    newChatBtn: document.getElementById('newChat'),
-                    clearHistoryBtn: document.getElementById('clearHistory')
-                }
-            };
+      // ===== 4️⃣ Helper Functions =====
+      function formatTime(timestamp) {
+        if (timestamp < 1000000000000) timestamp *= 1000;
+        const diff = Date.now() - timestamp;
+        if (diff < 0 || diff > 315576000000) return "Unknown time";
+        const minutes = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days = Math.floor(diff / 86400000);
+        if (minutes < 1) return "Just now";
+        if (minutes < 60) return `${minutes}m ago`;
+        if (hours < 24) return `${hours}h ago`;
+        if (days < 30) return `${days}d ago`;
+        return new Date(timestamp).toLocaleDateString();
+      }
 
-            // Create local references for convenience
-            const {currentChatId, activeCharacter, isProcessing, chatHistory, elements} = window.chatApp;
-            const {themeToggle, themeIcon, themeText, body, characterSelect, chatMessages,
-                   messageInput, sendButton, chatList, newChatBtn, clearHistoryBtn} = elements;
+      function escapeHtml(unsafe) {
+        return unsafe
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
 
-            // Initialize theme
-            let isDark = true;
-            body.setAttribute('data-theme', 'dark');
+      function parseMarkdown(text) {
+        return text
+          .replace(/\*\*(.*?)\*\*/g, "<strong>$1</strong>")
+          .replace(/\*(.*?)\*/g, "<em>$1</em>")
+          .replace(
+            /^### (.*$)/gm,
+            '<h3 style="margin:0.5rem 0; color: var(--accent-sakura);">$1</h3>'
+          )
+          .replace(
+            /^## (.*$)/gm,
+            '<h2 style="margin:0.5rem 0; color: var(--accent-sakura);">$1</h2>'
+          )
+          .replace(
+            /^# (.*$)/gm,
+            '<h1 style="margin:0.5rem 0; color: var(--accent-sakura);">$1</h1>'
+          )
+          .replace(/^- (.*$)/gm, '<li style="margin-left:1rem;">$1</li>')
+          .replace(
+            /^\d+\. (.*$)/gm,
+            '<li style="margin-left:1rem; list-style-type:decimal;">$1</li>'
+          )
+          .replace(/(<li.*<\/li>)/s, '<ul style="margin:0.5rem 0;">$1</ul>')
+          .replace(
+            /^> (.*$)/gm,
+            '<blockquote style="border-left:3px solid var(--accent-lavender); padding-left:1rem; margin:0.5rem 0; font-style:italic;">$1</blockquote>'
+          )
+          .replace(
+            /`(.*?)`/g,
+            '<code style="background: var(--secondary-bg); padding:0.2rem 0.4rem; border-radius:4px; font-family: monospace;">$1</code>'
+          )
+          .replace(
+            /\[(.*?)\]\((.*?)\)/g,
+            '<a href="$2" target="_blank" style="color: var(--accent-lavender); text-decoration: underline;">$1</a>'
+          )
+          .replace(/\n/g, "<br>");
+      }
 
-            themeToggle.addEventListener('click', () => {
-                isDark = !isDark;
-                if (isDark) {
-                    body.setAttribute('data-theme', 'dark');
-                    themeIcon.textContent = '☀️';
-                    themeText.textContent = 'Light';
-                } else {
-                    body.removeAttribute('data-theme');
-                    themeIcon.textContent = '🌙';
-                    themeText.textContent = 'Dark';
-                }
-            });
+      // ===== 5️⃣ Chat Functions =====
+      function addMessage(content, type, character = "", timestamp = null) {
+        timestamp = timestamp || Date.now();
+        if (timestamp < 1000000000000) timestamp *= 1000;
 
-            // Initialize characters data
-            const charactersData = {{ characters | tojson | safe }};
+        const messageDiv = document.createElement("div");
+        messageDiv.className = `message ${type}`;
+        messageDiv.dataset.timestamp = timestamp;
 
-            // Create new chat
-            function createNewChat(selectedCharacter = null) {
-                const chatId = 'chat_' + Date.now();
-                const character = selectedCharacter || characterSelect.value;
+        const timeDisplay = document.createElement("div");
+        timeDisplay.className = "message-time";
+        timeDisplay.textContent = formatTime(timestamp);
+        messageDiv.appendChild(timeDisplay);
 
-                // Create new chat object
-                chatHistory[chatId] = {
-                    id: chatId,
-                    character: character,
-                    messages: [],
-                    lastActivity: Date.now()
-                };
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
 
-                currentChatId = chatId;
-                activeCharacter = character;
+        const messageContent = document.createElement("div");
+        messageContent.className = "message-content";
 
-                // Clear messages
-                chatMessages.innerHTML = '';
+        if (type === "ai") {
+          messageContent.innerHTML = parseMarkdown(content);
+        } else {
+          messageContent.innerHTML = escapeHtml(content).replace(/\n/g, "<br>");
+        }
 
-                // Add welcome message
-                const welcomeDiv = document.createElement('div');
-                welcomeDiv.className = 'welcome-message';
-                welcomeDiv.innerHTML = `
-                    <h2 class="welcome-title">Chat with ${character}</h2>
-                    <div id="characterImageContainer">
-                        <p class="welcome-subtitle" style="color: var(--text-secondary);">
-                            <i class="fas fa-image"></i> Loading character image...
-                        </p>
-                    </div>
-                    <p class="welcome-subtitle" id="welcomeCharacterMessage"></p>
-                `;
-                chatMessages.appendChild(welcomeDiv);
+        bubble.appendChild(messageContent);
+        messageDiv.appendChild(bubble);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+      }
 
-                // Try to load character image from S3
-                fetch('/get_character_image', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ character: character })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    const imageContainer = document.getElementById('characterImageContainer');
-                    if (data.image_url) {
-                        imageContainer.innerHTML = `
-                            <img src="${data.image_url}"
-                                 alt="${character}"
-                                 style="max-width: 200px; border-radius: 10px; margin: 20px auto; display: block; box-shadow: var(--shadow-medium);"
-                                 onerror="this.onerror=null; this.parentElement.innerHTML='<p class=\'welcome-subtitle\' style=\'color: var(--text-secondary);\'><i class=\'fas fa-image\'></i> No image available for this character</p>';">
-                        `;
-                    } else {
-                        imageContainer.innerHTML = '<p class="welcome-subtitle" style="color: var(--text-secondary);"><i class="fas fa-image"></i> No image available for this character</p>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading character image:', error);
-                    const imageContainer = document.getElementById('characterImageContainer');
-                    imageContainer.innerHTML = '<p class="welcome-subtitle" style="color: var(--text-secondary);"><i class="fas fa-exclamation-triangle"></i> Failed to load character image</p>';
-                });
+      function addLoadingMessage() {
+        const messageDiv = document.createElement("div");
+        messageDiv.className = "message ai loading";
+        const bubble = document.createElement("div");
+        bubble.className = "message-bubble";
+        const loadingDiv = document.createElement("div");
+        loadingDiv.className = "loading-dots";
+        loadingDiv.innerHTML =
+          '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+        bubble.appendChild(loadingDiv);
+        messageDiv.appendChild(bubble);
+        chatMessages.appendChild(messageDiv);
+        chatMessages.scrollTop = chatMessages.scrollHeight;
+        return messageDiv;
+      }
 
-                // Update chat list
-                updateChatList();
-                updateCharacterInfo();
+      function updateChatList() {
+        chatList.innerHTML = "";
+        const chats = Object.values(window.chatApp.chatHistory)
+          .filter((chat) => chat && chat.messages && chat.messages.length > 0)
+          .sort((a, b) => (b.lastActivity || 0) - (a.lastActivity || 0));
+
+        chats.forEach((chat) => {
+          const chatItem = document.createElement("div");
+          chatItem.className = `chat-item ${
+            chat.id === window.chatApp.currentChatId ? "active" : ""
+          }`;
+          const lastMessage =
+            chat.messages[chat.messages.length - 1]?.content || "New chat";
+          const preview =
+            lastMessage.length > 40
+              ? lastMessage.substring(0, 40) + "..."
+              : lastMessage;
+          const displayCharacter = chat.character || characterSelect.value;
+
+          chatItem.innerHTML = `
+              <div class="chat-item-header">
+                  <div class="chat-item-title">${displayCharacter}</div>
+                  <button class="chat-item-delete" title="Delete chat">
+                      <i class="fas fa-trash-alt"></i>
+                  </button>
+              </div>
+              <div class="chat-item-preview">${preview}</div>
+              <div class="chat-item-time">${formatTime(
+                chat.lastActivity || Date.now()
+              )}</div>
+          `;
+
+          chatItem.onclick = (e) => {
+            if (!e.target.closest(".chat-item-delete")) loadChat(chat.id);
+          };
+
+          chatItem.querySelector(".chat-item-delete").onclick = (e) => {
+            e.stopPropagation();
+            if (confirm(`Delete chat with ${chat.character}?`)) {
+              delete window.chatApp.chatHistory[chat.id];
+              if (window.chatApp.currentChatId === chat.id) createNewChat();
+              else updateChatList();
             }
-
-            // Update character info in header and welcome message
-            function updateCharacterInfo() {
-                const selectedOption = characterSelect.options[characterSelect.selectedIndex];
-                const character = selectedOption.text;
-                const traits = selectedOption.dataset.traits;
-                const universe = selectedOption.dataset.universe;
-                const alias = selectedOption.dataset.alias;
-                const greeting = selectedOption.dataset.greeting;
-
-                // Update header
-                document.getElementById('characterName').textContent = character;
-
-                const detailsContainer = document.getElementById('characterDetails');
-                detailsContainer.innerHTML = '';
-
-                if (universe) {
-                    const universeTag = document.createElement('div');
-                    universeTag.className = 'character-tag';
-                    universeTag.textContent = universe;
-                    detailsContainer.appendChild(universeTag);
-                }
-
-                if (alias) {
-                    const aliasTag = document.createElement('div');
-                    aliasTag.className = 'character-tag';
-                    aliasTag.textContent = alias;
-                    detailsContainer.appendChild(aliasTag);
-                }
-
-                document.getElementById('characterPersonality').textContent = traits || 'No personality traits available';
-
-                // Update avatar placeholder with first letter
-                const avatarPlaceholder = document.getElementById('characterAvatar');
-                avatarPlaceholder.innerHTML = character.charAt(0);
-
-                // Update welcome message
-                const welcomeMessage = document.getElementById('welcomeCharacterMessage');
-                if (welcomeMessage) {
-                    welcomeMessage.textContent = greeting || `Start chatting with ${character}! Ask about anything!`;
-                }
-
-                // Try to load character image for avatar
-                fetch('/get_character_image', {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({ character: character })
-                })
-                .then(res => res.json())
-                .then(data => {
-                    if (data.image_url) {
-                        const img = document.createElement('img');
-                        img.src = data.image_url;
-                        img.alt = character;
-                        img.style.width = '48px';
-                        img.style.height = '48px';
-                        img.style.borderRadius = '24px';
-                        img.style.objectFit = 'cover';
-
-                        const avatar = document.getElementById('characterAvatar');
-                        avatar.innerHTML = '';
-                        avatar.appendChild(img);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error loading character image:', error);
-                });
-            }
-
-            // Format timestamp for chat list
-            function formatTime(timestamp) {
-                // Ensure timestamp is in milliseconds
-                if (timestamp < 1000000000000) {
-                    timestamp = timestamp * 1000;
-                }
-
-                const now = Date.now();
-                const diff = now - timestamp;
-
-                // Sanity check - if timestamp is in the future or too far in the past
-                if (diff < 0 || diff > 315576000000) { // if more than 10 years
-                    return 'Unknown time';
-                }
-
-                const minutes = Math.floor(diff / 60000);
-                const hours = Math.floor(diff / 3600000);
-                const days = Math.floor(diff / 86400000);
-
-                if (minutes < 1) return 'Just now';
-                if (minutes < 60) return `${minutes}m ago`;
-                if (hours < 24) return `${hours}h ago`;
-                if (days < 30) return `${days}d ago`;
-
-                // Fall back to actual date for older messages
-                return new Date(timestamp).toLocaleDateString();
-            }
-
-            // Update chat list in sidebar
-            function updateChatList() {
-                console.log('Updating chat list...');
-                console.log('Current chat history:', chatHistory);
-                chatList.innerHTML = '';
-
-                // Sort chats by last activity
-                const chats = Object.values(chatHistory);
-                console.log(`Found ${chats.length} chats to display`);
-
-                const sortedChats = chats
-                    .filter(chat => chat && chat.messages && chat.messages.length > 0)
-                    .sort((a, b) => {
-                        const timeA = a.lastActivity || 0;
-                        const timeB = b.lastActivity || 0;
-                        return timeB - timeA;
-                    });
-
-                console.log('Sorted chats:', sortedChats);
-
-                sortedChats.forEach(chat => {
-                    const chatItem = document.createElement('div');
-                    chatItem.className = `chat-item ${chat.id === currentChatId ? 'active' : ''}`;
-
-                    // Get last message and ensure it has content
-                    const lastMessage = chat.messages.length > 0
-                        ? (chat.messages[chat.messages.length - 1].content || 'Empty message')
-                        : 'New chat';
-                    const preview = lastMessage.length > 40 ? lastMessage.substring(0, 40) + '...' : lastMessage;
-
-                    // Ensure character name is set
-                    const displayCharacter = chat.character || characterSelect.value;
-
-                    chatItem.innerHTML = `
-                        <div class="chat-item-header">
-                            <div class="chat-item-title">${displayCharacter}</div>
-                            <button class="chat-item-delete" title="Delete chat">
-                                <i class="fas fa-trash-alt"></i>
-                            </button>
-                        </div>
-                        <div class="chat-item-preview">${preview}</div>
-                        <div class="chat-item-time">${formatTime(chat.lastActivity || Date.now())}</div>
-                    `;
-
-                    // Log chat item details
-                    console.log('Creating chat item:', {
-                        id: chat.id,
-                        character: displayCharacter,
-                        preview: preview,
-                        lastActivity: chat.lastActivity,
-                        messageCount: chat.messages.length
-                    });
-
-                    // Add click handler for the chat item
-                    chatItem.onclick = (e) => {
-                        // Don't trigger if clicking the delete button
-                        if (!e.target.closest('.chat-item-delete')) {
-                            loadChat(chat.id);
-                        }
-                    };
-
-                    // Add delete button handler
-                    const deleteBtn = chatItem.querySelector('.chat-item-delete');
-                    deleteBtn.onclick = (e) => {
-                        e.stopPropagation();
-                        if (confirm(`Are you sure you want to delete this chat with ${chat.character}?`)) {
-                            delete chatHistory[chat.id];
-                            if (currentChatId === chat.id) {
-                                // If deleting current chat, create a new one
-                                createNewChat();
-                            } else {
-                                updateChatList();
-                            }
-                        }
-                    };
-
-                    chatList.appendChild(chatItem);
-                });
-            }
-
-            // Load a specific chat
-            function loadChat(chatId) {
-                console.log('Loading chat:', chatId);
-                if (!chatHistory[chatId]) {
-                    console.error('Chat not found:', chatId);
-                    return;
-                }
-
-                const chat = chatHistory[chatId];
-                console.log('Loading chat data:', chat);
-
-                currentChatId = chatId;
-                activeCharacter = chat.character;
-
-                // Update character select
-                if (characterSelect.value !== activeCharacter) {
-                    console.log('Updating character select to:', activeCharacter);
-                    characterSelect.value = activeCharacter;
-                }
-
-                // Update character info
-                updateCharacterInfo();
-
-                // Clear and load messages
-                chatMessages.innerHTML = '';
-                chat.messages.forEach(msg => {
-                    addMessage(
-                        msg.content,
-                        msg.type || msg.role,
-                        msg.character || activeCharacter,
-                        msg.timestamp
-                    );
-                });
-
-                // If no messages, show welcome message
-                if (chatHistory[chatId].messages.length === 0) {
-                    const welcomeDiv = document.createElement('div');
-                    welcomeDiv.className = 'welcome-message';
-                    welcomeDiv.innerHTML = `
-                        <h2 class="welcome-title">Chat with ${activeCharacter}</h2>
-                        <p class="welcome-subtitle">Start your conversation!</p>
-                    `;
-                    chatMessages.appendChild(welcomeDiv);
-                }
-
-                updateChatList();
-                updateCharacterInfo();
-            }
-
-            // Clear all chat history
-            clearHistoryBtn.addEventListener('click', () => {
-                if (confirm('Are you sure you want to clear all chat history? This action cannot be undone.')) {
-                    chatHistory = {};
-                    createNewChat();
-                }
-            });
-
-            // Event listeners
-            characterSelect.addEventListener('change', () => {
-                createNewChat(characterSelect.value);
-            });
-
-            newChatBtn.addEventListener('click', () => {
-                createNewChat();
-            });
-
-            // Function to initialize the chat state
-            function initializeChatState() {
-                console.log('Initializing chat state...');
-                console.log('Current chat history:', chatHistory);
-
-                // First update the chat list to ensure it's populated
-                updateChatList();
-
-                const chats = Object.values(chatHistory)
-                    .filter(chat => chat && chat.messages && chat.messages.length > 0);
-                console.log(`Found ${chats.length} valid chats`);
-
-                if (chats.length === 0) {
-                    console.log('No existing chats, creating new chat');
-                    createNewChat();
-                    return;
-                }
-
-                // Sort chats by last activity
-                const sortedChats = chats.sort((a, b) => {
-                    const timeA = a.lastActivity || 0;
-                    const timeB = b.lastActivity || 0;
-                    return timeB - timeA;
-                });
-
-                console.log('Sorted chats:', sortedChats);
-
-                // Load the most recent chat
-                const mostRecentChat = sortedChats[0];
-                console.log('Most recent chat:', mostRecentChat);
-
-                // Ensure the chat has a valid character
-                if (!mostRecentChat.character || mostRecentChat.character === 'Unknown') {
-                    console.log('Fixing invalid character name:', mostRecentChat.character);
-                    mostRecentChat.character = characterSelect.value;
-                }
-
-                // Load the chat
-                console.log('Loading most recent chat:', mostRecentChat.id);
-                loadChat(mostRecentChat.id);
-                updateCharacterInfo();
-            }
-
-            // Initialize the chat state
-            initializeChatState();            // Auto-resize textarea
-            messageInput.addEventListener('input', function() {
-                this.style.height = 'auto';
-                this.style.height = Math.min(this.scrollHeight, 120) + 'px';
-            });
-
-            // Send message on Enter (but not Shift+Enter)
-            messageInput.addEventListener('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    sendMessage();
-                }
-            });
-
-            sendButton.addEventListener('click', sendMessage);
-
-            async function sendMessage() {
-                const message = messageInput.value.trim();
-                const char = characterSelect.value;
-                if (!message || isProcessing) return;
-
-                isProcessing = true;
-                sendButton.disabled = true;
-                sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-
-                // Remove welcome message if it exists
-                const welcomeMessage = document.querySelector('.welcome-message');
-                if (welcomeMessage) {
-                    welcomeMessage.remove();
-                }
-
-                // Create message objects
-                const userMsg = {
-                    content: message,
-                    type: 'user',
-                    timestamp: Date.now(),
-                    chatId: currentChatId
-                };
-
-                // Add user message
-                addMessage(message, 'user');
-                if (currentChatId && chatHistory[currentChatId]) {
-                    chatHistory[currentChatId].messages.push(userMsg);
-                    chatHistory[currentChatId].lastActivity = Date.now();
-                }
-
-                // Clear input
-                messageInput.value = '';
-                messageInput.style.height = 'auto';
-
-                // Add loading message
-                const loadingMessage = addLoadingMessage();
-
-                try {
-                    const res = await fetch('/chat', {
-                        method: 'POST',
-                        headers: {'Content-Type': 'application/json'},
-                        body: JSON.stringify({
-                            message: message,
-                            character: char,
-                            chatId: currentChatId
-                        })
-                    });
-                    const data = await res.json();
-
-                    // Remove loading message
-                    if (loadingMessage) {
-                        loadingMessage.remove();
-                    }
-
-                    // Create AI message object
-                    const aiMsg = {
-                        content: data.reply,
-                        type: 'ai',
-                        character: char,
-                        timestamp: Date.now(),
-                        chatId: currentChatId
-                    };
-
-                    addMessage(data.reply, 'ai', char);
-                    if (currentChatId && chatHistory[currentChatId]) {
-                        chatHistory[currentChatId].messages.push(aiMsg);
-                        chatHistory[currentChatId].lastActivity = Date.now();
-                    }
-
-                    // Update chat list to show latest message
-                    updateChatList();
-                } catch (error) {
-                    console.error('Error sending message:', error);
-
-                    // Remove loading message
-                    if (loadingMessage) {
-                        loadingMessage.remove();
-                    }
-
-                    const errorMsg = 'Sorry, there was an error processing your message. Please try again.';
-                    addMessage(errorMsg, 'ai', char);
-                    if (currentChatId && chatHistory[currentChatId]) {
-                        chatHistory[currentChatId].messages.push({
-                            content: errorMsg,
-                            type: 'ai',
-                            character: char,
-                            timestamp: Date.now(),
-                            chatId: currentChatId
-                        });
-                        chatHistory[currentChatId].lastActivity = Date.now();
-                    }
-                }
-
-                isProcessing = false;
-                sendButton.disabled = false;
-                sendButton.innerHTML = '<span>Send</span><i class="fas fa-paper-plane"></i>';
-            }
-
-            function addLoadingMessage() {
-                const messageDiv = document.createElement('div');
-                messageDiv.className = 'message ai loading';
-
-                const bubble = document.createElement('div');
-                bubble.className = 'message-bubble';
-
-                const loadingDiv = document.createElement('div');
-                loadingDiv.className = 'loading-dots';
-                loadingDiv.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
-
-                bubble.appendChild(loadingDiv);
-                messageDiv.appendChild(bubble);
-                chatMessages.appendChild(messageDiv);
-
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-                return messageDiv;
-            }
-
-            function addMessage(content, type, character = '', timestamp = null) {
-                console.log('Adding message:', { content, type, character, timestamp });
-
-                const now = Date.now();
-                timestamp = timestamp || now;
-
-                // Ensure timestamp is in milliseconds
-                if (timestamp < 1000000000000) {
-                    timestamp = timestamp * 1000;
-                }
-
-                const messageDiv = document.createElement('div');
-                messageDiv.className = `message ${type}`;
-                messageDiv.dataset.timestamp = timestamp;
-
-                // Add timestamp display
-                const timeDisplay = document.createElement('div');
-                timeDisplay.className = 'message-time';
-                timeDisplay.textContent = formatTime(timestamp);
-                messageDiv.appendChild(timeDisplay);
-
-                const bubble = document.createElement('div');
-                bubble.className = 'message-bubble';
-
-                const messageContent = document.createElement('div');
-                messageContent.className = 'message-content';
-
-                if (type === 'ai') {
-                    messageContent.innerHTML = parseMarkdown(content);
-                } else {
-                    messageContent.innerHTML = escapeHtml(content).replace(/\n/g, '<br>');
-                }
-
-                bubble.appendChild(messageContent);
-                messageDiv.appendChild(bubble);
-                chatMessages.appendChild(messageDiv);
-
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
-
-            function escapeHtml(unsafe) {
-                return unsafe
-                    .replace(/&/g, "&amp;")
-                    .replace(/</g, "&lt;")
-                    .replace(/>/g, "&gt;")
-                    .replace(/"/g, "&quot;")
-                    .replace(/'/g, "&#039;");
-            }
-
-            function parseMarkdown(text) {
-                return text
-                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                    .replace(/\*(.*?)\*/g, '<em>$1</em>')
-                    .replace(/^### (.*$)/gm, '<h3 style="margin: 0.5rem 0; color: var(--accent-sakura);">$1</h3>')
-                    .replace(/^## (.*$)/gm, '<h2 style="margin: 0.5rem 0; color: var(--accent-sakura);">$1</h2>')
-                    .replace(/^# (.*$)/gm, '<h1 style="margin: 0.5rem 0; color: var(--accent-sakura);">$1</h1>')
-                    .replace(/^- (.*$)/gm, '<li style="margin-left: 1rem;">$1</li>')
-                    .replace(/^\d+\. (.*$)/gm, '<li style="margin-left: 1rem; list-style-type: decimal;">$1</li>')
-                    .replace(/(<li.*<\/li>)/s, '<ul style="margin: 0.5rem 0;">$1</ul>')
-                    .replace(/^> (.*$)/gm, '<blockquote style="border-left: 3px solid var(--accent-lavender); padding-left: 1rem; margin: 0.5rem 0; font-style: italic;">$1</blockquote>')
-                    .replace(/`(.*?)`/g, '<code style="background: var(--secondary-bg); padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace;">$1</code>')
-                    .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" style="color: var(--accent-lavender); text-decoration: underline;">$1</a>')
-                    .replace(/\n/g, '<br>');
-            }
+          };
+
+          chatList.appendChild(chatItem);
+        });
+      }
+
+      function createNewChat(selectedCharacter = null) {
+        const chatId = "chat_" + Date.now();
+        const character = selectedCharacter || characterSelect.value;
+
+        window.chatApp.chatHistory[chatId] = {
+          id: chatId,
+          character: character,
+          messages: [],
+          lastActivity: Date.now(),
+        };
+
+        window.chatApp.currentChatId = chatId;
+        window.chatApp.activeCharacter = character;
+
+        chatMessages.innerHTML = "";
+        const welcomeDiv = document.createElement("div");
+        welcomeDiv.className = "welcome-message";
+        welcomeDiv.innerHTML = `<h2 class="welcome-title">Chat with ${character}</h2>
+          <p class="welcome-subtitle">Start chatting with ${character}!</p>`;
+        chatMessages.appendChild(welcomeDiv);
+
+        updateChatList();
+        updateCharacterInfo();
+      }
+
+      function loadChat(chatId) {
+        const chat = window.chatApp.chatHistory[chatId];
+        if (!chat) return;
+
+        window.chatApp.currentChatId = chatId;
+        window.chatApp.activeCharacter = chat.character;
+
+        if (characterSelect.value !== chat.character)
+          characterSelect.value = chat.character;
+
+        updateCharacterInfo();
+        chatMessages.innerHTML = "";
+        if (chat.messages.length === 0) createNewChat(chat.character);
+        else
+          chat.messages.forEach((msg) => {
+            addMessage(
+              msg.content,
+              msg.type || msg.role,
+              msg.character || chat.character,
+              msg.timestamp
+            );
+          });
+
+        updateChatList();
+      }
+
+      function updateCharacterInfo() {
+        const selectedOption =
+          characterSelect.options[characterSelect.selectedIndex];
+        const character = selectedOption.text;
+        const traits = selectedOption.dataset.traits;
+        const universe = selectedOption.dataset.universe;
+        const alias = selectedOption.dataset.alias;
+        const greeting = selectedOption.dataset.greeting;
+
+        document.getElementById("characterName").textContent = character;
+        document.getElementById("characterPersonality").textContent =
+          traits || "No personality traits available";
+        const detailsContainer = document.getElementById("characterDetails");
+        detailsContainer.innerHTML = "";
+        if (universe)
+          detailsContainer.innerHTML += `<div class="character-tag">${universe}</div>`;
+        if (alias)
+          detailsContainer.innerHTML += `<div class="character-tag">${alias}</div>`;
+        const avatarPlaceholder = document.getElementById("characterAvatar");
+        avatarPlaceholder.innerHTML = character.charAt(0);
+        const welcomeMessage = document.getElementById(
+          "welcomeCharacterMessage"
+        );
+        if (welcomeMessage)
+          welcomeMessage.textContent =
+            greeting || `Start chatting with ${character}!`;
+      }
+
+      // ===== 6️⃣ Initialize chat state =====
+      function initializeChatState() {
+        const chats = Object.values(window.chatApp.chatHistory).filter(
+          (c) => c && c.messages?.length > 0
+        );
+        if (chats.length === 0) return createNewChat();
+
+        const sorted = chats.sort(
+          (a, b) => (b.lastActivity || 0) - (a.lastActivity || 0)
+        );
+        const recent = sorted[0];
+        window.chatApp.currentChatId = recent.id;
+        window.chatApp.activeCharacter =
+          recent.character || characterSelect.value;
+
+        loadChat(recent.id);
+      }
+
+      initializeChatState();
+
+      // ===== 7️⃣ Event Listeners =====
+      characterSelect.addEventListener("change", () =>
+        createNewChat(characterSelect.value)
+      );
+      newChatBtn.addEventListener("click", () => createNewChat());
+      clearHistoryBtn.addEventListener("click", () => {
+        if (confirm("Clear all chat history?")) {
+          window.chatApp.chatHistory = {};
+          createNewChat();
+        }
+      });
+
+      messageInput.addEventListener("input", function () {
+        this.style.height = "auto";
+        this.style.height = Math.min(this.scrollHeight, 120) + "px";
+      });
+
+      messageInput.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      sendButton.addEventListener("click", sendMessage);
+
+      async function sendMessage() {
+        const message = messageInput.value.trim();
+        const char = characterSelect.value;
+        if (!message || window.chatApp.isProcessing) return;
+
+        window.chatApp.isProcessing = true;
+        sendButton.disabled = true;
+        sendButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+        document.querySelector(".welcome-message")?.remove();
+
+        const userMsg = {
+          content: message,
+          type: "user",
+          timestamp: Date.now(),
+          chatId: window.chatApp.currentChatId,
+        };
+        addMessage(message, "user");
+        window.chatApp.chatHistory[window.chatApp.currentChatId].messages.push(
+          userMsg
+        );
+        window.chatApp.chatHistory[window.chatApp.currentChatId].lastActivity =
+          Date.now();
+
+        messageInput.value = "";
+        messageInput.style.height = "auto";
+
+        const loading = addLoadingMessage();
+
+        try {
+          const res = await fetch("/chat", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              message,
+              character: char,
+              chatId: window.chatApp.currentChatId,
+            }),
+          });
+          const data = await res.json();
+          loading.remove();
+
+          const aiMsg = {
+            content: data.reply,
+            type: "ai",
+            timestamp: Date.now(),
+            chatId: window.chatApp.currentChatId,
+          };
+          addMessage(data.reply, "ai");
+          window.chatApp.chatHistory[
+            window.chatApp.currentChatId
+          ].messages.push(aiMsg);
+          window.chatApp.chatHistory[
+            window.chatApp.currentChatId
+          ].lastActivity = Date.now();
+        } catch (err) {
+          loading.remove();
+          addMessage("Error: Could not get response from server.", "ai");
+          console.error(err);
+        }
+
+        updateChatList();
+        window.chatApp.isProcessing = false;
+        sendButton.disabled = false;
+        sendButton.innerHTML = '<i class="fas fa-paper-plane"></i>';
+      }
     </script>
   </body>
 </html>
